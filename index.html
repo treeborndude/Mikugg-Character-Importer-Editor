@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Novel Character Editor &amp; Transfer</title>
+<style>
+  :root {
+    --bg: #12151c; --panel: #1a1f2a; --panel2: #222938; --line: #2e374a;
+    --text: #e6e9f0; --muted: #8b95ab; --accent: #4da3ff; --accent2: #2f7fd6;
+    --ok: #4cc38a; --warn: #f0b429; --bad: #ff6b6b;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 18px 24px 8px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px 24px; }
+  h1 { font-size: 20px; margin: 0; font-weight: 600; }
+  header p { margin: 0; color: var(--muted); font-size: 13px; }
+  button { font: inherit; color: var(--text); background: var(--panel2); border: 1px solid var(--line);
+           border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button:disabled { opacity: .4; cursor: default; }
+  button.primary { background: var(--accent2); border-color: var(--accent2); color: #fff; }
+  button.primary:hover:not(:disabled) { background: var(--accent); }
+  button.small { padding: 3px 9px; font-size: 13px; }
+  main { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 8px 24px 32px; align-items: start; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .panel.drag { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(77,163,255,.3); }
+  .panel-head { padding: 12px 14px; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .slot-label { font-weight: 700; background: var(--panel2); border-radius: 5px; padding: 1px 8px; }
+  .fname { flex: 1; min-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+  .fname.loaded { color: var(--text); }
+  .dirty { color: var(--warn); font-size: 12px; }
+  .empty { padding: 36px 20px; text-align: center; color: var(--muted); }
+  .error { padding: 10px 14px; color: var(--bad); background: rgba(255,107,107,.08); border-bottom: 1px solid var(--line); }
+  .tools { padding: 10px 14px; display: flex; gap: 8px; border-bottom: 1px solid var(--line); }
+  .tools input { flex: 1; }
+  input[type=text], textarea {
+    width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--line);
+    border-radius: 6px; padding: 7px 9px; font: inherit; }
+  input[type=text]:focus, textarea:focus { outline: none; border-color: var(--accent); }
+  ul.chars { list-style: none; margin: 0; padding: 0; max-height: 68vh; overflow-y: auto; }
+  ul.chars li { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-bottom: 1px solid var(--line); }
+  ul.chars li:last-child { border-bottom: none; }
+  ul.chars li:hover { background: var(--panel2); }
+  ul.chars li.flash { animation: flash 2.4s ease-out; }
+  @keyframes flash { 0%, 40% { background: rgba(76,195,138,.28); } 100% { background: transparent; } }
+  .cname { flex: 1; min-width: 0; text-align: left; background: none; border: none; padding: 2px 0; cursor: pointer; color: var(--text); }
+  .cname:hover { color: var(--accent); }
+  .cname .nm { display: block; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cname .sd { display: block; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .badge { font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; }
+  .count { color: var(--muted); font-size: 13px; padding: 8px 14px 0; }
+  dialog { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 12px;
+           padding: 0; width: min(760px, 94vw); max-height: 92vh; }
+  dialog::backdrop { background: rgba(0,0,0,.6); }
+  .dlg { display: flex; flex-direction: column; max-height: 92vh; }
+  .dlg-head { padding: 14px 18px; border-bottom: 1px solid var(--line); }
+  .dlg-head h2 { margin: 0; font-size: 17px; }
+  .dlg-head div { color: var(--muted); font-size: 12px; }
+  .dlg-body { padding: 14px 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+  .dlg-foot { padding: 12px 18px; border-top: 1px solid var(--line); display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
+  .dlg-foot .grow { flex: 1; color: var(--muted); font-size: 12px; }
+  label.f { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  textarea.big { min-height: 300px; resize: vertical; line-height: 1.5; }
+  textarea.mid { min-height: 110px; resize: vertical; }
+  details { border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; }
+  details summary { cursor: pointer; color: var(--muted); }
+  details[open] summary { margin-bottom: 10px; }
+  .sum { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; font-size: 14px; }
+  .sum ul { margin: 4px 0 0; padding-left: 20px; }
+  .sum .warn { color: var(--warn); }
+  .opt { display: flex; gap: 8px; align-items: flex-start; }
+  .opt input { margin-top: 4px; }
+  #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--ok); color: #06241a;
+           padding: 10px 18px; border-radius: 8px; font-weight: 500; max-width: 90vw; opacity: 0; pointer-events: none;
+           transition: opacity .25s; z-index: 50; }
+  #toast.show { opacity: 1; }
+  #toast.bad { background: var(--bad); color: #2a0707; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Novel Character Editor &amp; Transfer</h1>
+  <p>Load up to two novel JSON files. Click a character to edit its description, or send a character across to the other file.</p>
+  <span style="flex:1"></span>
+  <button id="loadBoth" class="small">Load two files at once…</button>
+  <input id="bothInput" type="file" accept=".json,application/json" multiple hidden>
+</header>
+
+<main>
+  <section class="panel" id="panelA" data-slot="A"></section>
+  <section class="panel" id="panelB" data-slot="B"></section>
+</main>
+
+<dialog id="editDlg"></dialog>
+<dialog id="xferDlg"></dialog>
+<div id="toast"></div>
+
+<!-- ============================ CORE (pure logic, no DOM) ============================ -->
+<script id="core">
+const Core = (() => {
+  const clone = o => JSON.parse(JSON.stringify(o));
+
+  const uuid = () => {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+      const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16);
+    });
+  };
+
+  // The novel content lives in data.novel for history exports; fall back to the root for plain exports.
+  function getNovel(data) {
+    if (data && data.novel && Array.isArray(data.novel.characters)) return data.novel;
+    if (data && Array.isArray(data.characters)) return data;
+    return null;
+  }
+
+  function parse(text) {
+    const data = JSON.parse(text);
+    if (!getNovel(data)) throw new Error('No character list found. This does not look like a novel JSON (expected novel.characters).');
+    return data;
+  }
+
+  const characters = data => getNovel(data).characters;
+
+  function ensureCard(c) {
+    c.card = c.card || {};
+    c.card.data = c.card.data || {};
+    return c.card.data;
+  }
+  const getDescription = c => (c.card && c.card.data && c.card.data.description) || '';
+  const outfitsOf = c => {
+    const ext = c.card && c.card.data && c.card.data.extensions;
+    return (ext && ext.mikugg_v2 && ext.mikugg_v2.outfits) || [];
+  };
+
+  // Textareas turn CRLF into LF. Only write a field back if the text really changed.
+  const norm = s => (s || '').replace(/\r\n/g, '\n');
+  function sameText(a, b) { return norm(a) === norm(b); }
+
+  /**
+   * Apply edits to a character in place. edits = { description, shortDescription, outfits: [text, ...] }
+   * Returns true if anything changed.
+   */
+  function applyEdits(c, edits) {
+    let changed = false;
+    if (edits.description !== undefined && !sameText(edits.description, getDescription(c))) {
+      ensureCard(c).description = edits.description; changed = true;
+    }
+    if (edits.shortDescription !== undefined && !sameText(edits.shortDescription, c.short_description)) {
+      c.short_description = edits.shortDescription; changed = true;
+    }
+    if (edits.outfits) {
+      const outs = outfitsOf(c);
+      edits.outfits.forEach((t, i) => {
+        if (outs[i] && !sameText(t, outs[i].description)) { outs[i].description = t; changed = true; }
+      });
+    }
+    return changed;
+  }
+
+  const byId = arr => new Map((arr || []).map(x => [x.id, x]));
+
+  /**
+   * Work out what moving a character from src to dst needs. Nothing is changed here.
+   * opts.copyLorebooks (default true): bring the lorebooks the character points at.
+   * opts.mode: 'replace' | 'copy'  (only matters when dst already has a character with the same id)
+   */
+  function plan(src, charId, dst, opts = {}) {
+    const copyLorebooks = opts.copyLorebooks !== false;
+    const sN = getNovel(src), dN = getNovel(dst);
+    const ch = sN.characters.find(c => c.id === charId);
+    if (!ch) throw new Error('Character not found in source file.');
+    const existingIndex = dN.characters.findIndex(c => c.id === charId);
+    const p = {
+      charName: ch.name, existingIndex, conflict: existingIndex >= 0,
+      lorebooksAdd: [], lorebooksReuse: 0, lorebooksDrop: [],
+      indicatorsAdd: [], indicatorsReuse: 0, indicatorsDrop: 0,
+      variablesAdd: [], banksAdd: [], bankLinks: [], banksReuse: 0, warnings: []
+    };
+
+    // ---- lorebooks
+    const sLore = byId(sN.lorebooks), dLore = byId(dN.lorebooks);
+    for (const id of ch.lorebookIds || []) {
+      if (dLore.has(id)) { p.lorebooksReuse++; continue; }
+      const lb = sLore.get(id);
+      if (!lb) { p.lorebooksDrop.push(id); p.warnings.push('A lorebook this character pointed at is missing from the source file; the link was dropped.'); continue; }
+      if (copyLorebooks) p.lorebooksAdd.push(clone(lb));
+      else p.lorebooksDrop.push(lb.name || id);
+    }
+
+    // ---- indicators -> variables -> banks
+    const sInd = byId(sN.indicators), dInd = byId(dN.indicators);
+    const sVar = byId(sN.variables), dVar = byId(dN.variables);
+    const sBank = byId(sN.variableBanks), dBank = byId(dN.variableBanks);
+    const varAddIds = new Set(), bankAddMap = new Map();
+
+    const needBank = bankId => {
+      if (dBank.has(bankId)) return true;
+      if (bankAddMap.has(bankId)) return true;
+      const b = sBank.get(bankId);
+      if (!b) return false;
+      const nb = clone(b); nb.variables = [];
+      bankAddMap.set(bankId, nb);
+      return true;
+    };
+    const needVar = vid => {
+      if (dVar.has(vid) || varAddIds.has(vid)) return true;
+      const v = sVar.get(vid);
+      if (!v) return false;
+      varAddIds.add(vid); p.variablesAdd.push(clone(v)); return true;
+    };
+    const link = (bankId, vid) => {
+      if (!p.bankLinks.some(l => l.bankId === bankId && l.variableId === vid)) p.bankLinks.push({ bankId, variableId: vid });
+    };
+
+    for (const id of ch.indicatorIds || []) {
+      if (dInd.has(id)) { p.indicatorsReuse++; continue; }
+      const ind = sInd.get(id);
+      if (!ind || !needVar(ind.variableId) || !needBank(ind.bankId)) {
+        p.indicatorsDrop++; p.warnings.push('An indicator this character used could not be resolved in the source file; the link was dropped.'); continue;
+      }
+      link(ind.bankId, ind.variableId);
+      p.indicatorsAdd.push(clone(ind));
+    }
+    for (const bid of ch.variableBankIds || []) {
+      if (dBank.has(bid)) { p.banksReuse++; continue; }
+      if (!needBank(bid)) { p.warnings.push('A variable bank this character used is missing from the source file.'); continue; }
+      for (const vid of sBank.get(bid).variables || []) if (needVar(vid)) link(bid, vid);
+    }
+    p.banksAdd = [...bankAddMap.values()];
+    return p;
+  }
+
+  /**
+   * Do the transfer: mutates dst only. opts as for plan(), plus mode.
+   * The character goes on the end of dst's character list (or replaces the same-id one in place).
+   */
+  function transfer(src, charId, dst, opts = {}) {
+    const p = plan(src, charId, dst, opts);
+    const sN = getNovel(src), dN = getNovel(dst);
+    const ch = clone(sN.characters.find(c => c.id === charId));
+    const mode = p.conflict ? (opts.mode || 'copy') : 'new';
+
+    // dst arrays that may not exist yet
+    for (const k of ['lorebooks', 'indicators', 'variables', 'variableBanks']) if (!Array.isArray(dN[k])) dN[k] = [];
+
+    for (const lb of p.lorebooksAdd) dN.lorebooks.push(lb);
+    for (const v of p.variablesAdd) dN.variables.push(v);
+    for (const b of p.banksAdd) dN.variableBanks.push(b);
+    for (const { bankId, variableId } of p.bankLinks) {
+      const b = dN.variableBanks.find(x => x.id === bankId);
+      if (b) { b.variables = b.variables || []; if (!b.variables.includes(variableId)) b.variables.push(variableId); }
+    }
+    for (const i of p.indicatorsAdd) dN.indicators.push(i);
+
+    // Make the character's own link lists match what actually exists in dst now.
+    const have = (arr) => new Set(dN[arr].map(x => x.id));
+    const L = have('lorebooks'), I = have('indicators'), B = have('variableBanks');
+    if (ch.lorebookIds) ch.lorebookIds = ch.lorebookIds.filter(id => L.has(id));
+    if (ch.indicatorIds) ch.indicatorIds = ch.indicatorIds.filter(id => I.has(id));
+    if (ch.variableBankIds) ch.variableBankIds = ch.variableBankIds.filter(id => B.has(id));
+
+    if (mode === 'copy') {
+      ch.id = uuid();
+      for (const o of outfitsOf(ch)) o.id = uuid();
+      dN.characters.push(ch);
+    } else if (mode === 'replace') {
+      dN.characters[p.existingIndex] = ch;
+    } else {
+      dN.characters.push(ch);
+    }
+    return { plan: p, mode, newId: ch.id };
+  }
+
+  function serialize(text, data) {
+    const m = text.match(/^\s*[\{\[]\r?\n([ \t]+)"/);
+    return JSON.stringify(data, null, m ? m[1] : 0);
+  }
+
+  return { clone, uuid, getNovel, parse, characters, getDescription, outfitsOf, applyEdits, plan, transfer, serialize, sameText };
+})();
+if (typeof module !== 'undefined') module.exports = Core;
+</script>
+
+<!-- ============================ UI ============================ -->
+<script id="ui">
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const el = (tag, props = {}, ...kids) => {
+    const e = document.createElement(tag);
+    for (const [k, v] of Object.entries(props)) {
+      if (v == null) continue;
+      if (k === 'class') e.className = v;
+      else if (k === 'text') e.textContent = v;
+      else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+      else e.setAttribute(k, v);
+    }
+    for (const kid of kids) if (kid != null) e.append(kid);
+    return e;
+  };
+
+  const slots = {
+    A: { name: '', text: '', data: null, dirty: false, error: '', filter: '', flashId: null },
+    B: { name: '', text: '', data: null, dirty: false, error: '', filter: '', flashId: null }
+  };
+  const other = k => (k === 'A' ? 'B' : 'A');
+
+  let toastTimer;
+  function toast(msg, bad) {
+    const t = $('#toast');
+    t.textContent = msg; t.className = 'show' + (bad ? ' bad' : '');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.className = ''; }, 5000);
+  }
+
+  // ---------- file loading ----------
+  function readFile(k, file) {
+    const s = slots[k];
+    return file.text().then(text => {
+      try {
+        const data = Core.parse(text);
+        Object.assign(s, { name: file.name, text, data, dirty: false, error: '', filter: '', flashId: null });
+      } catch (e) {
+        Object.assign(s, { name: file.name, text: '', data: null, dirty: false, error: 'Could not load ' + file.name + ': ' + e.message });
+      }
+      render(k);
+    });
+  }
+
+  function pickInto(k) {
+    const inp = el('input', { type: 'file', accept: '.json,application/json' });
+    inp.addEventListener('change', () => { if (inp.files[0]) readFile(k, inp.files[0]); });
+    inp.click();
+  }
+
+  // ---------- panel rendering ----------
+  function render(k) {
+    const s = slots[k], panel = $('#panel' + k);
+    panel.replaceChildren();
+
+    const head = el('div', { class: 'panel-head' },
+      el('span', { class: 'slot-label', text: 'File ' + k }),
+      el('span', { class: 'fname' + (s.data ? ' loaded' : ''), text: s.name || 'No file loaded', title: s.name }),
+      s.dirty ? el('span', { class: 'dirty', text: '● unsaved changes' }) : null,
+      el('button', { class: 'small', text: s.data ? 'Replace…' : 'Choose file…', onclick: () => pickInto(k) })
+    );
+    panel.append(head);
+    if (s.error) panel.append(el('div', { class: 'error', text: s.error }));
+
+    if (!s.data) {
+      panel.append(el('div', { class: 'empty', text: 'Drop a .json file here, or use “Choose file…”.' }));
+      return;
+    }
+
+    const chars = Core.characters(s.data);
+    const filter = el('input', { type: 'text', placeholder: 'Filter characters…', value: s.filter });
+    const list = el('ul', { class: 'chars' });
+    const count = el('div', { class: 'count' });
+
+    const fillList = () => {
+      list.replaceChildren();
+      const q = s.filter.trim().toLowerCase();
+      let shown = 0, flashEl = null;
+      chars.forEach(c => {
+        if (q && !(c.name || '').toLowerCase().includes(q)) return;
+        shown++;
+        const li = el('li', { class: s.flashId === c.id ? 'flash' : '' },
+          el('button', { class: 'cname', title: 'Edit description', onclick: () => openEditor(k, c.id) },
+            el('span', { class: 'nm', text: c.name || '(unnamed)' }),
+            el('span', { class: 'sd', text: c.short_description || '' })),
+          c.hidden ? el('span', { class: 'badge', text: 'hidden' }) : null,
+          el('button', {
+            class: 'small', title: 'Send this character to File ' + other(k), disabled: slots[other(k)].data ? null : 'disabled',
+            text: k === 'A' ? 'Send to B →' : '← Send to A', onclick: () => openTransfer(k, c.id)
+          })
+        );
+        if (s.flashId === c.id) flashEl = li;
+        list.append(li);
+      });
+      count.textContent = (q ? shown + ' of ' : '') + chars.length + ' character' + (chars.length === 1 ? '' : 's');
+      if (flashEl) { flashEl.scrollIntoView({ block: 'nearest' }); s.flashId = null; }
+    };
+    filter.addEventListener('input', () => { s.filter = filter.value; fillList(); });
+
+    panel.append(
+      el('div', { class: 'tools' }, filter,
+        el('button', {
+          class: 'small', text: 'Reset', title: 'Discard all changes and reload the file as uploaded',
+          disabled: s.dirty ? null : 'disabled',
+          onclick: () => { s.data = Core.parse(s.text); s.dirty = false; render(k); toast('File ' + k + ' reset to the uploaded version.'); }
+        }),
+        el('button', { class: 'primary small', text: 'Download ⬇', onclick: () => download(k) })
+      ),
+      count, list
+    );
+    fillList();
+    // updateXferButtons for the other panel is handled by render() callers
+  }
+
+  function download(k) {
+    const s = slots[k];
+    const out = Core.serialize(s.text, s.data);
+    const stem = s.name.replace(/\.json$/i, '');
+    const blob = new Blob([out], { type: 'application/json' });
+    const a = el('a', { href: URL.createObjectURL(blob), download: stem + (s.dirty ? '_edited' : '') + '.json' });
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    toast('Downloaded ' + a.download);
+  }
+
+  // ---------- description editor ----------
+  function openEditor(k, charId) {
+    const s = slots[k];
+    const c = Core.characters(s.data).find(x => x.id === charId);
+    const dlg = $('#editDlg');
+    const desc = el('textarea', { class: 'big', spellcheck: 'false' }); desc.value = Core.getDescription(c);
+    const short = el('textarea', { class: 'mid', style: 'min-height:60px', spellcheck: 'false' }); short.value = c.short_description || '';
+    const outfits = Core.outfitsOf(c);
+    const outAreas = outfits.map(o => { const t = el('textarea', { class: 'mid', spellcheck: 'false' }); t.value = o.description || ''; return t; });
+    const counter = el('span', { class: 'grow' });
+    const upd = () => { counter.textContent = desc.value.length + ' characters in description'; };
+    desc.addEventListener('input', upd); upd();
+
+    const save = () => {
+      const changed = Core.applyEdits(c, {
+        description: desc.value, shortDescription: short.value, outfits: outAreas.map(t => t.value)
+      });
+      dlg.close();
+      if (changed) { s.dirty = true; render(k); toast('Saved changes to ' + c.name + '. Remember to download the file.'); }
+    };
+
+    dlg.replaceChildren(el('div', { class: 'dlg' },
+      el('div', { class: 'dlg-head' }, el('h2', { text: c.name }), el('div', { text: 'File ' + k + ' · ' + s.name })),
+      el('div', { class: 'dlg-body' },
+        el('div', {}, el('label', { class: 'f', text: 'Description' }), desc),
+        el('details', {},
+          el('summary', { text: 'Short description & outfits' }),
+          el('div', {}, el('label', { class: 'f', text: 'Short description (shown in lists)' }), short),
+          ...outfits.map((o, i) => el('div', { style: 'margin-top:10px' },
+            el('label', { class: 'f', text: 'Outfit: ' + (o.name || '(unnamed)') }), outAreas[i]))
+        )
+      ),
+      el('div', { class: 'dlg-foot' }, counter,
+        el('button', { text: 'Cancel', onclick: () => dlg.close() }),
+        el('button', { class: 'primary', text: 'Save', onclick: save }))
+    ));
+    dlg.showModal(); desc.focus();
+  }
+
+  // ---------- transfer ----------
+  function openTransfer(from, charId) {
+    const to = other(from), src = slots[from], dst = slots[to];
+    if (!dst.data) { toast('Load a file into File ' + to + ' first.', true); return; }
+    const dlg = $('#xferDlg');
+    const body = el('div', { class: 'dlg-body' });
+    let copyLore = true, mode = 'copy';
+
+    const drawSummary = () => {
+      const p = Core.plan(src.data, charId, dst.data, { copyLorebooks: copyLore });
+      body.replaceChildren();
+      const ul = el('ul');
+      const li = t => ul.append(el('li', { text: t }));
+      li('Character: its description, outfits, emotions, images, tags and settings (all of it).');
+      if (p.lorebooksAdd.length) li('Lorebooks copied: ' + p.lorebooksAdd.map(l => l.name || l.id).join(', '));
+      if (p.lorebooksReuse) li(p.lorebooksReuse + ' lorebook(s) already in File ' + to + ' will be linked as they are.');
+      if (p.lorebooksDrop.length && !copyLore) li('Lorebook links removed from the transferred character: ' + p.lorebooksDrop.join(', '));
+      if (p.indicatorsAdd.length) li('Indicators copied: ' + p.indicatorsAdd.length + ' (with ' + p.variablesAdd.length + ' variable(s)' + (p.banksAdd.length ? ' and bank ' + p.banksAdd.map(b => '“' + b.name + '”').join(', ') : '') + ')');
+      else if (p.variablesAdd.length) li('Variables copied: ' + p.variablesAdd.length);
+      if (p.indicatorsReuse) li(p.indicatorsReuse + ' indicator(s) already in File ' + to + ' will be linked as they are.');
+      li('Not carried over: scenes, cutscenes and objectives that mention this character stay in File ' + from + '.');
+      const sum = el('div', { class: 'sum' }, el('div', { text: 'This will add to the bottom of File ' + to + ':' }), ul);
+      p.warnings.forEach(w => sum.append(el('div', { class: 'warn', text: '⚠ ' + w })));
+      body.append(sum);
+
+      body.append(el('label', { class: 'opt' },
+        el('input', { type: 'checkbox', ...(copyLore ? { checked: 'checked' } : {}), onchange: e => { copyLore = e.target.checked; drawSummary(); } }),
+        el('span', { text: 'Also copy the lorebooks this character uses (recommended; otherwise those links are removed)' })));
+
+      if (p.conflict) {
+        body.append(el('div', { class: 'sum' },
+          el('div', { class: 'warn', text: '⚠ File ' + to + ' already has a character with this exact ID (' + p.charName + ').' }),
+          el('label', { class: 'opt' }, el('input', { type: 'radio', name: 'mode', value: 'copy', ...(mode === 'copy' ? { checked: 'checked' } : {}), onchange: () => { mode = 'copy'; } }),
+            el('span', { text: 'Add as a separate character (gets a new ID)' })),
+          el('label', { class: 'opt' }, el('input', { type: 'radio', name: 'mode', value: 'replace', ...(mode === 'replace' ? { checked: 'checked' } : {}), onchange: () => { mode = 'replace'; } }),
+            el('span', { text: 'Replace the existing one in place (scenes in File ' + to + ' keep working)' }))));
+      }
+    };
+    drawSummary();
+
+    const go = () => {
+      const res = Core.transfer(src.data, charId, dst.data, { copyLorebooks: copyLore, mode });
+      dlg.close();
+      dst.dirty = true; dst.flashId = res.newId; dst.filter = '';
+      render(to);
+      toast('“' + res.plan.charName + '” ' + (res.mode === 'replace' ? 'replaced in' : 'added to the bottom of') + ' File ' + to + '. Download File ' + to + ' to keep it.');
+    };
+
+    dlg.replaceChildren(el('div', { class: 'dlg' },
+      el('div', { class: 'dlg-head' }, el('h2', { text: 'Send “' + Core.characters(src.data).find(c => c.id === charId).name + '” to File ' + to }),
+        el('div', { text: 'File ' + from + ' is not changed.' })),
+      body,
+      el('div', { class: 'dlg-foot' }, el('span', { class: 'grow' }),
+        el('button', { text: 'Cancel', onclick: () => dlg.close() }),
+        el('button', { class: 'primary', text: 'Transfer', onclick: go }))
+    ));
+    dlg.showModal();
+  }
+
+  // ---------- wiring ----------
+  $('#loadBoth').addEventListener('click', () => $('#bothInput').click());
+  $('#bothInput').addEventListener('change', e => {
+    const files = [...e.target.files];
+    if (files[0]) readFile('A', files[0]);
+    if (files[1]) readFile('B', files[1]);
+    if (files.length > 2) toast('Only the first two files were loaded.', true);
+    e.target.value = '';
+  });
+
+  for (const k of ['A', 'B']) {
+    const p = $('#panel' + k);
+    p.addEventListener('dragover', e => { e.preventDefault(); p.classList.add('drag'); });
+    p.addEventListener('dragleave', () => p.classList.remove('drag'));
+    p.addEventListener('drop', e => {
+      e.preventDefault(); p.classList.remove('drag');
+      const files = [...e.dataTransfer.files];
+      if (files[0]) readFile(k, files[0]);
+      if (files[1]) readFile(other(k), files[1]);   // two files dropped together fill both slots
+    });
+  }
+  // Keep the "Send" buttons in sync when the other file is loaded or changed.
+  const _render = render;
+  render = function (k) { _render(k); if (slots[other(k)].data) _render(other(k)); };
+
+  window.addEventListener('beforeunload', e => {
+    if (slots.A.dirty || slots.B.dirty) { e.preventDefault(); e.returnValue = ''; }
+  });
+  window.addEventListener('dragover', e => e.preventDefault());
+  window.addEventListener('drop', e => e.preventDefault());
+
+  _render('A'); _render('B');
+  window.__slots = slots;   // handy for debugging in the console
+})();
+</script>
+</body>
+</html>

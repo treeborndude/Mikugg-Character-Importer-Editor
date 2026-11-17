@@ -23,6 +23,10 @@
   button.primary { background: var(--accent2); border-color: var(--accent2); color: #fff; }
   button.primary:hover:not(:disabled) { background: var(--accent); }
   button.small { padding: 3px 9px; font-size: 13px; }
+  button.danger { color: var(--bad); }
+  button.danger:hover:not(:disabled) { border-color: var(--bad); }
+  button.primary.danger { background: #b83a3a; border-color: #b83a3a; color: #fff; }
+  button.primary.danger:hover:not(:disabled) { background: var(--bad); border-color: var(--bad); }
   main { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 8px 24px 32px; align-items: start; }
   @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
   .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
@@ -96,6 +100,7 @@
 
 <dialog id="editDlg"></dialog>
 <dialog id="xferDlg"></dialog>
+<dialog id="delDlg"></dialog>
 <div id="toast"></div>
 
 <!-- ============================ CORE (pure logic, no DOM) ============================ -->
@@ -275,12 +280,56 @@ const Core = (() => {
     return { plan: p, mode, newId: ch.id };
   }
 
+  /**
+   * Count where a character is used. Nothing is changed.
+   * scenes / cutsceneParts / starts can be cleaned up automatically; objectives and narration are only reported.
+   */
+  function referencesOf(data, charId) {
+    const n = getNovel(data);
+    const r = { scenes: 0, cutsceneParts: 0, starts: 0, objectives: 0, narration: 0 };
+    for (const s of n.scenes || []) if ((s.characters || []).some(c => c.characterId === charId)) r.scenes++;
+    for (const cs of n.cutscenes || []) for (const pt of cs.parts || []) if ((pt.characters || []).some(c => c.id === charId)) r.cutsceneParts++;
+    for (const st of n.starts || []) if ((st.characters || []).some(c => c.characterId === charId)) r.starts++;
+    const seen = new Set(), lists = [n.objectives];
+    if (data !== n) lists.push(data.objectives);
+    for (const list of lists) for (const o of list || []) {
+      const ids = o && o.stateCondition && o.stateCondition.config && o.stateCondition.config.characterIds;
+      if (Array.isArray(ids) && ids.includes(charId)) seen.add(o.id);
+    }
+    r.objectives = seen.size;
+    const resp = data.narration && data.narration.responses;
+    if (resp) for (const x of Object.values(resp)) {
+      if (x.selectedCharacterId === charId || (x.characters || []).some(c => c.characterId === charId)) r.narration++;
+    }
+    return r;
+  }
+
+  /**
+   * Remove a character from the character list. With stripRefs (default) it is also taken out of
+   * scenes, start screens and cutscenes. Objective conditions and saved play history are never edited.
+   */
+  function deleteCharacter(data, charId, opts = {}) {
+    const stripRefs = opts.stripRefs !== false;
+    const n = getNovel(data);
+    const idx = n.characters.findIndex(c => c.id === charId);
+    if (idx < 0) throw new Error('Character not found.');
+    const name = n.characters[idx].name;
+    const refs = referencesOf(data, charId);
+    n.characters.splice(idx, 1);
+    if (stripRefs) {
+      for (const s of n.scenes || []) if (s.characters) s.characters = s.characters.filter(c => c.characterId !== charId);
+      for (const st of n.starts || []) if (st.characters) st.characters = st.characters.filter(c => c.characterId !== charId);
+      for (const cs of n.cutscenes || []) for (const pt of cs.parts || []) if (pt.characters) pt.characters = pt.characters.filter(c => c.id !== charId);
+    }
+    return { name, refs, stripped: stripRefs };
+  }
+
   function serialize(text, data) {
     const m = text.match(/^\s*[\{\[]\r?\n([ \t]+)"/);
     return JSON.stringify(data, null, m ? m[1] : 0);
   }
 
-  return { clone, uuid, getNovel, parse, characters, getDescription, outfitsOf, applyEdits, plan, transfer, serialize, sameText };
+  return { clone, uuid, getNovel, parse, characters, getDescription, outfitsOf, applyEdits, plan, transfer, referencesOf, deleteCharacter, serialize, sameText };
 })();
 if (typeof module !== 'undefined') module.exports = Core;
 </script>
@@ -303,8 +352,8 @@ if (typeof module !== 'undefined') module.exports = Core;
   };
 
   const slots = {
-    A: { name: '', text: '', data: null, dirty: false, error: '', filter: '', flashId: null },
-    B: { name: '', text: '', data: null, dirty: false, error: '', filter: '', flashId: null }
+    A: { name: '', text: '', data: null, dirty: false, error: '', filter: '', flashId: null, undo: null },
+    B: { name: '', text: '', data: null, dirty: false, error: '', filter: '', flashId: null, undo: null }
   };
   const other = k => (k === 'A' ? 'B' : 'A');
 
@@ -321,9 +370,9 @@ if (typeof module !== 'undefined') module.exports = Core;
     return file.text().then(text => {
       try {
         const data = Core.parse(text);
-        Object.assign(s, { name: file.name, text, data, dirty: false, error: '', filter: '', flashId: null });
+        Object.assign(s, { name: file.name, text, data, dirty: false, error: '', filter: '', flashId: null, undo: null });
       } catch (e) {
-        Object.assign(s, { name: file.name, text: '', data: null, dirty: false, error: 'Could not load ' + file.name + ': ' + e.message });
+        Object.assign(s, { name: file.name, text: '', data: null, dirty: false, undo: null, error: 'Could not load ' + file.name + ': ' + e.message });
       }
       render(k);
     });
@@ -374,7 +423,8 @@ if (typeof module !== 'undefined') module.exports = Core;
           el('button', {
             class: 'small', title: 'Send this character to File ' + other(k), disabled: slots[other(k)].data ? null : 'disabled',
             text: k === 'A' ? 'Send to B →' : '← Send to A', onclick: () => openTransfer(k, c.id)
-          })
+          }),
+          el('button', { class: 'small danger', title: 'Delete this character from File ' + k, text: 'Delete', onclick: () => openDelete(k, c.id) })
         );
         if (s.flashId === c.id) flashEl = li;
         list.append(li);
@@ -386,10 +436,17 @@ if (typeof module !== 'undefined') module.exports = Core;
 
     panel.append(
       el('div', { class: 'tools' }, filter,
+        s.undo ? el('button', {
+          class: 'small', text: 'Undo delete', title: 'Put back ' + s.undo.name,
+          onclick: () => {
+            const u = s.undo; s.data = u.data; s.dirty = u.dirty; s.undo = null; s.filter = ''; s.flashId = u.charId;
+            render(k); toast('Restored ' + u.name + '.');
+          }
+        }) : null,
         el('button', {
           class: 'small', text: 'Reset', title: 'Discard all changes and reload the file as uploaded',
           disabled: s.dirty ? null : 'disabled',
-          onclick: () => { s.data = Core.parse(s.text); s.dirty = false; render(k); toast('File ' + k + ' reset to the uploaded version.'); }
+          onclick: () => { s.data = Core.parse(s.text); s.dirty = false; s.undo = null; render(k); toast('File ' + k + ' reset to the uploaded version.'); }
         }),
         el('button', { class: 'primary small', text: 'Download ⬇', onclick: () => download(k) })
       ),
@@ -428,7 +485,7 @@ if (typeof module !== 'undefined') module.exports = Core;
         description: desc.value, shortDescription: short.value, outfits: outAreas.map(t => t.value)
       });
       dlg.close();
-      if (changed) { s.dirty = true; render(k); toast('Saved changes to ' + c.name + '. Remember to download the file.'); }
+      if (changed) { s.dirty = true; s.undo = null; render(k); toast('Saved changes to ' + c.name + '. Remember to download the file.'); }
     };
 
     dlg.replaceChildren(el('div', { class: 'dlg' },
@@ -492,7 +549,7 @@ if (typeof module !== 'undefined') module.exports = Core;
     const go = () => {
       const res = Core.transfer(src.data, charId, dst.data, { copyLorebooks: copyLore, mode });
       dlg.close();
-      dst.dirty = true; dst.flashId = res.newId; dst.filter = '';
+      dst.dirty = true; dst.undo = null; dst.flashId = res.newId; dst.filter = '';
       render(to);
       toast('“' + res.plan.charName + '” ' + (res.mode === 'replace' ? 'replaced in' : 'added to the bottom of') + ' File ' + to + '. Download File ' + to + ' to keep it.');
     };
@@ -504,6 +561,57 @@ if (typeof module !== 'undefined') module.exports = Core;
       el('div', { class: 'dlg-foot' }, el('span', { class: 'grow' }),
         el('button', { text: 'Cancel', onclick: () => dlg.close() }),
         el('button', { class: 'primary', text: 'Transfer', onclick: go }))
+    ));
+    dlg.showModal();
+  }
+
+  // ---------- delete ----------
+  function openDelete(k, charId) {
+    const s = slots[k];
+    const c = Core.characters(s.data).find(x => x.id === charId);
+    const r = Core.referencesOf(s.data, charId);
+    const dlg = $('#delDlg');
+    let strip = true;
+    const used = r.scenes + r.cutsceneParts + r.starts;
+    const body = el('div', { class: 'dlg-body' });
+
+    const draw = () => {
+      body.replaceChildren();
+      const ul = el('ul');
+      const li = t => ul.append(el('li', { text: t }));
+      if (r.scenes) li('used in ' + r.scenes + ' scene' + (r.scenes === 1 ? '' : 's'));
+      if (r.cutsceneParts) li('shown in ' + r.cutsceneParts + ' cutscene part' + (r.cutsceneParts === 1 ? '' : 's'));
+      if (r.starts) li('used in ' + r.starts + ' start screen' + (r.starts === 1 ? '' : 's'));
+      if (!used) li('not used in any scene, cutscene or start screen');
+      body.append(el('div', { class: 'sum' }, el('div', { text: '“' + c.name + '” is:' }), ul));
+      if (used) {
+        body.append(el('label', { class: 'opt' },
+          el('input', { type: 'checkbox', ...(strip ? { checked: 'checked' } : {}), onchange: e => { strip = e.target.checked; } }),
+          el('span', { text: 'Also remove them from those scenes, cutscenes and start screens (recommended; otherwise they keep pointing at a character that no longer exists)' })));
+      }
+      const warns = [];
+      if (r.objectives) warns.push(r.objectives + ' objective condition' + (r.objectives === 1 ? '' : 's') + ' mention this character and will not be changed. Check them in miku.gg.');
+      if (r.narration) warns.push('The saved play history in this file mentions this character and will not be changed. If the game misbehaves on load, start a fresh playthrough.');
+      if (warns.length) body.append(el('div', { class: 'sum' }, ...warns.map(w => el('div', { class: 'warn', text: '⚠ ' + w }))));
+      body.append(el('div', { class: 'sum', text: 'Lorebooks, indicators and variables this character used stay in the file. You can undo straight afterwards, or Reset to the uploaded version.' }));
+    };
+    draw();
+
+    const go = () => {
+      const snapshot = { name: c.name, charId, data: Core.clone(s.data), dirty: s.dirty };
+      const res = Core.deleteCharacter(s.data, charId, { stripRefs: strip });
+      dlg.close();
+      s.undo = snapshot; s.dirty = true;
+      render(k);
+      toast('Deleted “' + res.name + '” from File ' + k + '. Download File ' + k + ' to keep the change.');
+    };
+
+    dlg.replaceChildren(el('div', { class: 'dlg' },
+      el('div', { class: 'dlg-head' }, el('h2', { text: 'Delete “' + c.name + '” from File ' + k + '?' }), el('div', { text: s.name })),
+      body,
+      el('div', { class: 'dlg-foot' }, el('span', { class: 'grow' }),
+        el('button', { text: 'Cancel', onclick: () => dlg.close() }),
+        el('button', { class: 'primary danger', text: 'Delete character', onclick: go }))
     ));
     dlg.showModal();
   }

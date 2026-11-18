@@ -77,6 +77,40 @@
   .sum .warn { color: var(--warn); }
   .opt { display: flex; gap: 8px; align-items: flex-start; }
   .opt input { margin-top: 4px; }
+  input[type=number], select { width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--line);
+    border-radius: 6px; padding: 7px 9px; font: inherit; }
+  input[type=number]:focus, select:focus { outline: none; border-color: var(--accent); }
+  #editDlg { width: min(940px, 95vw); }
+  .tabs { display: flex; gap: 4px; padding: 8px 18px 0; border-bottom: 1px solid var(--line); }
+  .tab { border-radius: 6px 6px 0 0; border-bottom: none; background: transparent; color: var(--muted); }
+  .tab.on { background: var(--panel2); color: var(--text); border-color: var(--accent); }
+  .pane[hidden] { display: none; }
+  .pane { display: flex; flex-direction: column; gap: 12px; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .fld { margin: 0; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; align-items: end; }
+  .checks { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+  .row { display: flex; gap: 8px; align-items: center; }
+  .row input[type=text] { flex: 1; }
+  .colorpick { width: 38px; height: 34px; padding: 0; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); flex: none; }
+  .card { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+  .big-card { margin-top: 0; }
+  .cardhead { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .sub { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; margin-top: 4px; }
+  details.lb { padding: 8px 12px; }
+  details.lb summary { color: var(--text); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  details.lb[open] > *:not(summary) { margin-top: 10px; }
+  .warnbox { color: var(--warn); background: rgba(240,180,41,.08); border: 1px solid rgba(240,180,41,.35); border-radius: 6px; padding: 6px 10px; font-size: 13px; }
+  .badge.warnb { color: var(--warn); border-color: rgba(240,180,41,.5); }
+  .badge.okb { color: var(--ok); border-color: rgba(76,195,138,.5); }
+  .pickbox { border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; }
+  .sechead { display: flex; gap: 6px; align-items: center; margin-bottom: 4px; }
+  .sechead .grow { flex: 1; }
+  label.pick { padding: 4px 0; border-top: 1px solid var(--line); align-items: center; }
+  label.pick:first-of-type { border-top: none; }
+  .plabel { flex: 1; }
+  label.chk { align-items: center; }
+  label.chk input { margin-top: 0; }
   #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--ok); color: #06241a;
            padding: 10px 18px; border-radius: 8px; font-weight: 500; max-width: 90vw; opacity: 0; pointer-events: none;
            transition: opacity .25s; z-index: 50; }
@@ -167,33 +201,61 @@ const Core = (() => {
   }
 
   const byId = arr => new Map((arr || []).map(x => [x.id, x]));
+  // pick = { lorebooks: [ids], indicators: [ids], banks: [ids] }. A missing list means "everything".
+  const wants = (pick, key, id) => !pick || !pick[key] || pick[key].includes(id);
+
+  /**
+   * Everything a character depends on, with its status in the target file. Feeds the transfer pick-lists.
+   */
+  function transferOptions(src, charId, dst) {
+    const sN = getNovel(src), dN = getNovel(dst);
+    const ch = sN.characters.find(c => c.id === charId);
+    const sLore = byId(sN.lorebooks), dLore = byId(dN.lorebooks);
+    const sInd = byId(sN.indicators), dInd = byId(dN.indicators);
+    const sVar = byId(sN.variables), sBank = byId(sN.variableBanks), dBank = byId(dN.variableBanks);
+    const o = { lorebooks: [], indicators: [], banks: [] };
+    for (const id of ch.lorebookIds || []) {
+      const lb = sLore.get(id); if (!lb) continue;
+      o.lorebooks.push({ id, name: lb.name || '(unnamed)', isGlobal: !!lb.isGlobal, entries: (lb.entries || []).length, inTarget: dLore.has(id) });
+    }
+    for (const id of ch.indicatorIds || []) {
+      const ind = sInd.get(id); if (!ind) continue;
+      const v = sVar.get(ind.variableId), b = sBank.get(ind.bankId);
+      o.indicators.push({ id, name: v ? v.name : '(missing variable)', type: v ? v.type : '', bank: b ? b.name : '', inTarget: dInd.has(id) });
+    }
+    for (const id of ch.variableBankIds || []) {
+      const b = sBank.get(id); if (!b) continue;
+      o.banks.push({ id, name: b.name || '(unnamed)', variables: (b.variables || []).length, inTarget: dBank.has(id) });
+    }
+    return o;
+  }
 
   /**
    * Work out what moving a character from src to dst needs. Nothing is changed here.
-   * opts.copyLorebooks (default true): bring the lorebooks the character points at.
-   * opts.mode: 'replace' | 'copy'  (only matters when dst already has a character with the same id)
+   * opts.pick chooses which lorebooks / indicators / variable banks come along (default: all).
+   * An item that is not picked is also unlinked from the transferred character.
    */
   function plan(src, charId, dst, opts = {}) {
-    const copyLorebooks = opts.copyLorebooks !== false;
+    const pick = opts.pick;
     const sN = getNovel(src), dN = getNovel(dst);
     const ch = sN.characters.find(c => c.id === charId);
     if (!ch) throw new Error('Character not found in source file.');
     const existingIndex = dN.characters.findIndex(c => c.id === charId);
     const p = {
       charName: ch.name, existingIndex, conflict: existingIndex >= 0,
-      lorebooksAdd: [], lorebooksReuse: 0, lorebooksDrop: [],
-      indicatorsAdd: [], indicatorsReuse: 0, indicatorsDrop: 0,
-      variablesAdd: [], banksAdd: [], bankLinks: [], banksReuse: 0, warnings: []
+      lorebooksAdd: [], lorebooksReuse: 0, lorebooksSkipped: 0,
+      indicatorsAdd: [], indicatorsReuse: 0, indicatorsSkipped: 0,
+      variablesAdd: [], banksAdd: [], bankLinks: [], banksReuse: 0, banksSkipped: 0, warnings: []
     };
 
     // ---- lorebooks
     const sLore = byId(sN.lorebooks), dLore = byId(dN.lorebooks);
     for (const id of ch.lorebookIds || []) {
+      if (!wants(pick, 'lorebooks', id)) { p.lorebooksSkipped++; continue; }
       if (dLore.has(id)) { p.lorebooksReuse++; continue; }
       const lb = sLore.get(id);
-      if (!lb) { p.lorebooksDrop.push(id); p.warnings.push('A lorebook this character pointed at is missing from the source file; the link was dropped.'); continue; }
-      if (copyLorebooks) p.lorebooksAdd.push(clone(lb));
-      else p.lorebooksDrop.push(lb.name || id);
+      if (!lb) { p.warnings.push('A lorebook this character pointed at is missing from the source file; the link was dropped.'); continue; }
+      p.lorebooksAdd.push(clone(lb));
     }
 
     // ---- indicators -> variables -> banks
@@ -203,8 +265,7 @@ const Core = (() => {
     const varAddIds = new Set(), bankAddMap = new Map();
 
     const needBank = bankId => {
-      if (dBank.has(bankId)) return true;
-      if (bankAddMap.has(bankId)) return true;
+      if (dBank.has(bankId) || bankAddMap.has(bankId)) return true;
       const b = sBank.get(bankId);
       if (!b) return false;
       const nb = clone(b); nb.variables = [];
@@ -222,15 +283,17 @@ const Core = (() => {
     };
 
     for (const id of ch.indicatorIds || []) {
+      if (!wants(pick, 'indicators', id)) { p.indicatorsSkipped++; continue; }
       if (dInd.has(id)) { p.indicatorsReuse++; continue; }
       const ind = sInd.get(id);
       if (!ind || !needVar(ind.variableId) || !needBank(ind.bankId)) {
-        p.indicatorsDrop++; p.warnings.push('An indicator this character used could not be resolved in the source file; the link was dropped.'); continue;
+        p.warnings.push('An indicator this character used could not be resolved in the source file; the link was dropped.'); continue;
       }
       link(ind.bankId, ind.variableId);
       p.indicatorsAdd.push(clone(ind));
     }
     for (const bid of ch.variableBankIds || []) {
+      if (!wants(pick, 'banks', bid)) { p.banksSkipped++; continue; }
       if (dBank.has(bid)) { p.banksReuse++; continue; }
       if (!needBank(bid)) { p.warnings.push('A variable bank this character used is missing from the source file.'); continue; }
       for (const vid of sBank.get(bid).variables || []) if (needVar(vid)) link(bid, vid);
@@ -245,11 +308,11 @@ const Core = (() => {
    */
   function transfer(src, charId, dst, opts = {}) {
     const p = plan(src, charId, dst, opts);
+    const pick = opts.pick;
     const sN = getNovel(src), dN = getNovel(dst);
     const ch = clone(sN.characters.find(c => c.id === charId));
     const mode = p.conflict ? (opts.mode || 'copy') : 'new';
 
-    // dst arrays that may not exist yet
     for (const k of ['lorebooks', 'indicators', 'variables', 'variableBanks']) if (!Array.isArray(dN[k])) dN[k] = [];
 
     for (const lb of p.lorebooksAdd) dN.lorebooks.push(lb);
@@ -261,12 +324,12 @@ const Core = (() => {
     }
     for (const i of p.indicatorsAdd) dN.indicators.push(i);
 
-    // Make the character's own link lists match what actually exists in dst now.
-    const have = (arr) => new Set(dN[arr].map(x => x.id));
+    // The character keeps only the links that were picked AND exist in dst now.
+    const have = arr => new Set(dN[arr].map(x => x.id));
     const L = have('lorebooks'), I = have('indicators'), B = have('variableBanks');
-    if (ch.lorebookIds) ch.lorebookIds = ch.lorebookIds.filter(id => L.has(id));
-    if (ch.indicatorIds) ch.indicatorIds = ch.indicatorIds.filter(id => I.has(id));
-    if (ch.variableBankIds) ch.variableBankIds = ch.variableBankIds.filter(id => B.has(id));
+    if (ch.lorebookIds) ch.lorebookIds = ch.lorebookIds.filter(id => L.has(id) && wants(pick, 'lorebooks', id));
+    if (ch.indicatorIds) ch.indicatorIds = ch.indicatorIds.filter(id => I.has(id) && wants(pick, 'indicators', id));
+    if (ch.variableBankIds) ch.variableBankIds = ch.variableBankIds.filter(id => B.has(id) && wants(pick, 'banks', id));
 
     if (mode === 'copy') {
       ch.id = uuid();
@@ -278,6 +341,76 @@ const Core = (() => {
       dN.characters.push(ch);
     }
     return { plan: p, mode, newId: ch.id };
+  }
+
+  // ---------------- per-character lorebooks / indicators / variables ----------------
+
+  /**
+   * Lorebooks the character is tagged with, leaving out global ones.
+   * Each item says who else uses it, because editing a shared lorebook changes it for all of them.
+   */
+  function charLorebooks(data, charId) {
+    const n = getNovel(data), ch = n.characters.find(c => c.id === charId), lore = byId(n.lorebooks);
+    const items = []; let globals = 0;
+    for (const id of ch.lorebookIds || []) {
+      const lb = lore.get(id); if (!lb) continue;
+      if (lb.isGlobal) { globals++; continue; }
+      items.push({
+        lorebook: lb,
+        sharedWith: n.characters.filter(c => c.id !== charId && (c.lorebookIds || []).includes(id)).map(c => c.name),
+        scenes: (n.scenes || []).filter(s => (s.lorebookIds || []).includes(id)).length
+      });
+    }
+    return { items, globals };
+  }
+
+  /**
+   * Indicators tagged on the character (each with its variable and bank), plus the variables of any
+   * variable banks tagged on the character.
+   */
+  function charIndicators(data, charId) {
+    const n = getNovel(data), ch = n.characters.find(c => c.id === charId);
+    const ind = byId(n.indicators), vars = byId(n.variables), banks = byId(n.variableBanks);
+    const objs = [...(n.objectives || []), ...((data !== n && data.objectives) || [])];
+    const objText = new Map(); for (const o of objs) objText.set(o.id, JSON.stringify(o));
+    const objectivesUsing = vid => { let k = 0; for (const t of objText.values()) if (t.includes(vid)) k++; return k; };
+    const items = [];
+    for (const id of ch.indicatorIds || []) {
+      const i = ind.get(id); if (!i) continue;
+      const v = vars.get(i.variableId) || null;
+      items.push({
+        indicator: i, variable: v, bank: banks.get(i.bankId) || null,
+        sharedWith: n.characters.filter(c => c.id !== charId && (c.indicatorIds || []).includes(id)).map(c => c.name),
+        scenes: (n.scenes || []).filter(s => (s.indicatorIds || []).includes(id)).length,
+        objectives: v ? objectivesUsing(v.id) : 0
+      });
+    }
+    const taggedBanks = [];
+    for (const bid of ch.variableBankIds || []) {
+      const b = banks.get(bid); if (!b) continue;
+      taggedBanks.push({
+        bank: b,
+        sharedWith: n.characters.filter(c => c.id !== charId && (c.variableBankIds || []).includes(bid)).map(c => c.name),
+        variables: (b.variables || []).map(vid => vars.get(vid)).filter(Boolean).map(v => ({ variable: v, objectives: objectivesUsing(v.id) }))
+      });
+    }
+    return { items, banks: taggedBanks };
+  }
+
+  /**
+   * Write edited copies back into the novel, matching by id and keeping list order.
+   * copies = { lorebooks: [...], indicators: [...], variables: [...] }. Returns how many items really changed.
+   */
+  function commitCopies(data, copies) {
+    const n = getNovel(data); let changed = 0;
+    for (const key of ['lorebooks', 'indicators', 'variables']) {
+      for (const item of copies[key] || []) {
+        const arr = n[key] || [];
+        const i = arr.findIndex(x => x.id === item.id);
+        if (i >= 0 && JSON.stringify(arr[i]) !== JSON.stringify(item)) { arr[i] = item; changed++; }
+      }
+    }
+    return changed;
   }
 
   /**
@@ -329,7 +462,7 @@ const Core = (() => {
     return JSON.stringify(data, null, m ? m[1] : 0);
   }
 
-  return { clone, uuid, getNovel, parse, characters, getDescription, outfitsOf, applyEdits, plan, transfer, referencesOf, deleteCharacter, serialize, sameText };
+  return { clone, uuid, getNovel, parse, characters, getDescription, outfitsOf, applyEdits, plan, transfer, transferOptions, charLorebooks, charIndicators, commitCopies, referencesOf, deleteCharacter, serialize, sameText };
 })();
 if (typeof module !== 'undefined') module.exports = Core;
 </script>
@@ -467,11 +600,87 @@ if (typeof module !== 'undefined') module.exports = Core;
     toast('Downloaded ' + a.download);
   }
 
-  // ---------- description editor ----------
+  // ---------- small form helpers (edit a working copy in place, only when the user types) ----------
+  const fld = (label, node) => el('div', { class: 'fld' }, el('label', { class: 'f', text: label }), node);
+  function textInput(obj, key, placeholder) {
+    const i = el('input', { type: 'text', placeholder: placeholder || '' });
+    i.value = obj[key] == null ? '' : String(obj[key]);
+    i.addEventListener('input', () => { obj[key] = i.value; });
+    return i;
+  }
+  function areaInput(obj, key, cls) {
+    const t = el('textarea', { class: cls || 'mid', spellcheck: 'false' });
+    t.value = obj[key] == null ? '' : String(obj[key]);
+    t.addEventListener('input', () => { obj[key] = t.value; });
+    return t;
+  }
+  function numInput(obj, key) {
+    const i = el('input', { type: 'number', step: 'any' });
+    i.value = obj[key] == null ? '' : obj[key];
+    i.addEventListener('input', () => { const v = i.value.trim(); if (v !== '' && !isNaN(Number(v))) obj[key] = Number(v); });
+    return i;
+  }
+  function checkInput(obj, key, text) {
+    const i = el('input', { type: 'checkbox' });
+    i.checked = !!obj[key];
+    i.addEventListener('change', () => { obj[key] = i.checked; });
+    return el('label', { class: 'opt chk' }, i, el('span', { text }));
+  }
+  const plural = (n, one, many) => n + ' ' + (n === 1 ? one : (many || one + 's'));
+  const nameList = (names, max = 6) => names.slice(0, max).join(', ') + (names.length > max ? ' and ' + (names.length - max) + ' more' : '');
+
+  // A variable: name, description, value (by type). Edits go straight to the working copy `v`.
+  function variableFields(v) {
+    const box = el('div', {});
+    box.append(fld('Variable name', textInput(v, 'name')), fld('Description (tells the AI what this variable means)', areaInput(v, 'description', 'mid')));
+    if (v.type === 'boolean') {
+      box.append(fld('Starting value', checkInput(v, 'value', 'On (true)')));
+    } else if (v.type === 'number') {
+      box.append(fld('Starting value', numInput(v, 'value')));
+    } else if (v.type === 'discrete') {
+      const sel = el('select');
+      const fill = () => {
+        sel.replaceChildren();
+        const vals = v.discreteValues || [];
+        (vals.includes(v.value) ? vals : [v.value, ...vals]).forEach(o => sel.append(el('option', { value: o, text: o })));
+        sel.value = v.value;
+      };
+      fill(); sel.addEventListener('change', () => { v.value = sel.value; });
+      const list = el('textarea', { class: 'mid', spellcheck: 'false' });
+      list.value = (v.discreteValues || []).join('\n');
+      list.addEventListener('input', () => { v.discreteValues = list.value.split('\n').filter(x => x !== ''); fill(); });
+      box.append(fld('Starting value', sel), fld('Allowed values (one per line)', list));
+    } else {
+      box.append(fld('Starting value', textInput(v, 'value')));
+    }
+    return box;
+  }
+
+  // An indicator: how the variable is displayed.
+  function indicatorFields(ind) {
+    const color = el('input', { type: 'text' }); color.value = ind.color || '';
+    const picker = el('input', { type: 'color', class: 'colorpick' });
+    if (/^#[0-9a-f]{6}$/i.test(ind.color || '')) picker.value = ind.color; else picker.disabled = true;
+    color.addEventListener('input', () => { ind.color = color.value; if (/^#[0-9a-f]{6}$/i.test(color.value)) { picker.disabled = false; picker.value = color.value; } });
+    picker.addEventListener('input', () => { ind.color = picker.value; color.value = picker.value; });
+    const disp = el('select', {}, el('option', { value: '', text: 'Plain number' }), el('option', { value: 'percentage', text: 'Percentage' }));
+    disp.value = ind.numericType || '';
+    disp.addEventListener('change', () => { if (disp.value) ind.numericType = disp.value; else delete ind.numericType; });
+    return el('div', { class: 'grid' },
+      fld('Colour', el('div', { class: 'row' }, picker, color)),
+      fld('Display', disp),
+      fld('Minimum', numInput(ind, 'min')), fld('Maximum', numInput(ind, 'max')), fld('Step', numInput(ind, 'step')),
+      el('div', { class: 'fld checks' }, checkInput(ind, 'hidden', 'Hidden'), checkInput(ind, 'editable', 'Player can edit'), checkInput(ind, 'persistent', 'Persistent'))
+    );
+  }
+
+  // ---------- character editor: description, lorebooks, indicators ----------
   function openEditor(k, charId) {
     const s = slots[k];
     const c = Core.characters(s.data).find(x => x.id === charId);
     const dlg = $('#editDlg');
+
+    // ----- Description tab
     const desc = el('textarea', { class: 'big', spellcheck: 'false' }); desc.value = Core.getDescription(c);
     const short = el('textarea', { class: 'mid', style: 'min-height:60px', spellcheck: 'false' }); short.value = c.short_description || '';
     const outfits = Core.outfitsOf(c);
@@ -479,75 +688,178 @@ if (typeof module !== 'undefined') module.exports = Core;
     const counter = el('span', { class: 'grow' });
     const upd = () => { counter.textContent = desc.value.length + ' characters in description'; };
     desc.addEventListener('input', upd); upd();
+    const descPane = el('div', { class: 'pane' },
+      fld('Description', desc),
+      el('details', {},
+        el('summary', { text: 'Short description & outfits' }),
+        el('div', {}, el('label', { class: 'f', text: 'Short description (shown in lists)' }), short),
+        ...outfits.map((o, i) => el('div', { style: 'margin-top:10px' }, el('label', { class: 'f', text: 'Outfit: ' + (o.name || '(unnamed)') }), outAreas[i]))
+      ));
+
+    // ----- Lorebooks tab (character-specific only; working copies)
+    const lore = Core.charLorebooks(s.data, charId);
+    const loreCopies = lore.items.map(it => Object.assign({}, it, { copy: Core.clone(it.lorebook) }));
+    const lorePane = el('div', { class: 'pane', hidden: 'hidden' });
+    if (!loreCopies.length) lorePane.append(el('div', { class: 'muted', text: 'This character has no lorebooks of its own.' }));
+    for (const it of loreCopies) {
+      const lb = it.copy;
+      if (!Array.isArray(lb.entries)) lb.entries = [];
+      const title = el('b', { text: lb.name || '(unnamed)' }), count = el('span', { class: 'badge' });
+      const entriesBox = el('div', { class: 'entries' });
+      const renderEntries = () => {
+        entriesBox.replaceChildren();
+        count.textContent = plural(lb.entries.length, 'entry', 'entries');
+        lb.entries.forEach((e, idx) => {
+          const keys = el('input', { type: 'text', placeholder: 'trigger words, separated by commas' });
+          keys.value = (e.keys || []).join(', ');
+          keys.addEventListener('input', () => { e.keys = keys.value.split(',').map(x => x.trim()).filter(Boolean); });
+          entriesBox.append(el('div', { class: 'card' },
+            el('div', { class: 'row' }, textInput(e, 'name', 'Entry name'), el('button', { class: 'small danger', text: 'Delete entry', onclick: () => { lb.entries.splice(idx, 1); renderEntries(); } })),
+            fld('Trigger keys', keys), fld('Content', areaInput(e, 'content', 'mid'))));
+        });
+      };
+      renderEntries();
+      const nameInp = textInput(lb, 'name'); nameInp.addEventListener('input', () => { title.textContent = lb.name || '(unnamed)'; });
+      const notes = [];
+      if (it.sharedWith.length) notes.push('Shared with ' + plural(it.sharedWith.length, 'other character') + ' (' + nameList(it.sharedWith) + '). Editing it changes it for all of them.');
+      if (it.scenes) notes.push('Also used by ' + plural(it.scenes, 'scene') + '.');
+      lorePane.append(el('details', { class: 'lb', ...(loreCopies.length === 1 ? { open: 'open' } : {}) },
+        el('summary', {}, title, ' ', count, it.sharedWith.length ? el('span', { class: 'badge warnb', text: 'shared' }) : null),
+        ...notes.map(t => el('div', { class: 'warnbox', text: '⚠ ' + t })),
+        fld('Lorebook name', nameInp), fld('Description', areaInput(lb, 'description', 'mid')),
+        entriesBox,
+        el('button', {
+          class: 'small', text: '+ Add entry', onclick: () => {
+            lb.entries.push({ keys: [], name: 'New entry', content: '', extensions: {}, enabled: lb.entries[0] ? lb.entries[0].enabled : false, insertion_order: 0 });
+            renderEntries(); entriesBox.lastElementChild.scrollIntoView({ block: 'nearest' });
+          }
+        })));
+    }
+    if (lore.globals) lorePane.append(el('div', { class: 'muted', text: plural(lore.globals, 'global lorebook') + (lore.globals === 1 ? ' also applies' : ' also apply') + ' to this character but ' + (lore.globals === 1 ? 'is' : 'are') + ' not shown here.' }));
+
+    // ----- Indicators tab (tagged indicators + their variables; variables of tagged banks)
+    const inds = Core.charIndicators(s.data, charId);
+    const varClones = new Map(), indClones = new Map();
+    const varOf = v => { if (!varClones.has(v.id)) varClones.set(v.id, Core.clone(v)); return varClones.get(v.id); };
+    const indPane = el('div', { class: 'pane', hidden: 'hidden' });
+    if (!inds.items.length && !inds.banks.length) indPane.append(el('div', { class: 'muted', text: 'This character has no indicators of its own.' }));
+    for (const it of inds.items) {
+      const ind = Core.clone(it.indicator); indClones.set(ind.id, ind);
+      const v = it.variable ? varOf(it.variable) : null;
+      const notes = [];
+      if (it.sharedWith.length) notes.push('Shared with ' + plural(it.sharedWith.length, 'other character') + ' (' + nameList(it.sharedWith) + '). Editing it changes it for all of them.');
+      if (it.scenes) notes.push('This indicator is shown in ' + plural(it.scenes, 'scene') + '.');
+      if (it.objectives) notes.push('This variable is used by ' + plural(it.objectives, 'objective') + '. Renaming or re-typing it can break their logic.');
+      indPane.append(el('div', { class: 'card big-card' },
+        el('div', { class: 'cardhead' }, el('b', { text: v ? v.name : '(variable missing)' }),
+          v ? el('span', { class: 'badge', text: v.type }) : null, it.bank ? el('span', { class: 'badge', text: 'bank: ' + it.bank.name }) : null,
+          it.sharedWith.length ? el('span', { class: 'badge warnb', text: 'shared' }) : null),
+        ...notes.map(t => el('div', { class: 'warnbox', text: '⚠ ' + t })),
+        v ? el('div', {}, el('div', { class: 'sub', text: 'Variable' }), variableFields(v)) : el('div', { class: 'warnbox', text: '⚠ The variable this indicator points at is missing from the file.' }),
+        el('div', { class: 'sub', text: 'Indicator display' }), indicatorFields(ind)));
+    }
+    for (const tb of inds.banks) {
+      indPane.append(el('div', { class: 'sub', text: 'Variables in tagged bank “' + tb.bank.name + '”' + (tb.sharedWith.length ? ' (shared with ' + plural(tb.sharedWith.length, 'other character') + ')' : '') }));
+      for (const bv of tb.variables) {
+        const v = varOf(bv.variable);
+        indPane.append(el('div', { class: 'card big-card' },
+          el('div', { class: 'cardhead' }, el('b', { text: v.name }), el('span', { class: 'badge', text: v.type })),
+          bv.objectives ? el('div', { class: 'warnbox', text: '⚠ This variable is used by ' + plural(bv.objectives, 'objective') + '. Renaming or re-typing it can break their logic.' }) : null,
+          variableFields(v)));
+      }
+    }
+
+    // ----- tabs
+    const panes = { desc: descPane, lore: lorePane, ind: indPane };
+    const tabBtns = {};
+    const showTab = key => { for (const [kk, p] of Object.entries(panes)) { p.hidden = kk !== key; tabBtns[kk].classList.toggle('on', kk === key); } counter.style.visibility = key === 'desc' ? 'visible' : 'hidden'; };
+    const tabs = el('div', { class: 'tabs' });
+    [['desc', 'Description'], ['lore', 'Lorebooks (' + loreCopies.length + ')'], ['ind', 'Indicators (' + (inds.items.length + inds.banks.reduce((a, b) => a + b.variables.length, 0)) + ')']].forEach(([key, label]) => {
+      tabBtns[key] = el('button', { class: 'tab', text: label, onclick: () => showTab(key) }); tabs.append(tabBtns[key]);
+    });
 
     const save = () => {
-      const changed = Core.applyEdits(c, {
-        description: desc.value, shortDescription: short.value, outfits: outAreas.map(t => t.value)
-      });
+      const descChanged = Core.applyEdits(c, { description: desc.value, shortDescription: short.value, outfits: outAreas.map(t => t.value) });
+      const n = Core.commitCopies(s.data, { lorebooks: loreCopies.map(x => x.copy), indicators: [...indClones.values()], variables: [...varClones.values()] });
       dlg.close();
-      if (changed) { s.dirty = true; s.undo = null; render(k); toast('Saved changes to ' + c.name + '. Remember to download the file.'); }
+      if (descChanged || n) {
+        s.dirty = true; s.undo = null; render(k);
+        toast('Saved changes to ' + c.name + (n ? ' (' + plural(n, 'lorebook / indicator / variable item') + ' updated)' : '') + '. Remember to download the file.');
+      }
     };
 
     dlg.replaceChildren(el('div', { class: 'dlg' },
       el('div', { class: 'dlg-head' }, el('h2', { text: c.name }), el('div', { text: 'File ' + k + ' · ' + s.name })),
-      el('div', { class: 'dlg-body' },
-        el('div', {}, el('label', { class: 'f', text: 'Description' }), desc),
-        el('details', {},
-          el('summary', { text: 'Short description & outfits' }),
-          el('div', {}, el('label', { class: 'f', text: 'Short description (shown in lists)' }), short),
-          ...outfits.map((o, i) => el('div', { style: 'margin-top:10px' },
-            el('label', { class: 'f', text: 'Outfit: ' + (o.name || '(unnamed)') }), outAreas[i]))
-        )
-      ),
+      tabs,
+      el('div', { class: 'dlg-body' }, descPane, lorePane, indPane),
       el('div', { class: 'dlg-foot' }, counter,
         el('button', { text: 'Cancel', onclick: () => dlg.close() }),
         el('button', { class: 'primary', text: 'Save', onclick: save }))
     ));
+    showTab('desc');
     dlg.showModal(); desc.focus();
   }
 
-  // ---------- transfer ----------
+  // ---------- transfer: pick exactly what comes along ----------
   function openTransfer(from, charId) {
     const to = other(from), src = slots[from], dst = slots[to];
     if (!dst.data) { toast('Load a file into File ' + to + ' first.', true); return; }
     const dlg = $('#xferDlg');
-    const body = el('div', { class: 'dlg-body' });
-    let copyLore = true, mode = 'copy';
+    const opts = Core.transferOptions(src.data, charId, dst.data);
+    const picked = { lorebooks: new Set(opts.lorebooks.map(x => x.id)), indicators: new Set(opts.indicators.map(x => x.id)), banks: new Set(opts.banks.map(x => x.id)) };
+    const exists = Core.characters(dst.data).some(x => x.id === charId);
+    let mode = 'copy';
+    const pickArg = () => ({ lorebooks: [...picked.lorebooks], indicators: [...picked.indicators], banks: [...picked.banks] });
+    const status = it => el('span', { class: 'badge ' + (it.inTarget ? 'okb' : ''), text: it.inTarget ? 'already in File ' + to + ' (will link to that one)' : 'will be copied' });
 
+    const summary = el('div', { class: 'sum' });
     const drawSummary = () => {
-      const p = Core.plan(src.data, charId, dst.data, { copyLorebooks: copyLore });
-      body.replaceChildren();
-      const ul = el('ul');
-      const li = t => ul.append(el('li', { text: t }));
-      li('Character: its description, outfits, emotions, images, tags and settings (all of it).');
+      const p = Core.plan(src.data, charId, dst.data, { pick: pickArg() });
+      const ul = el('ul'); const li = t => ul.append(el('li', { text: t }));
+      li('The character itself: description, outfits, emotions, images and settings.');
       if (p.lorebooksAdd.length) li('Lorebooks copied: ' + p.lorebooksAdd.map(l => l.name || l.id).join(', '));
-      if (p.lorebooksReuse) li(p.lorebooksReuse + ' lorebook(s) already in File ' + to + ' will be linked as they are.');
-      if (p.lorebooksDrop.length && !copyLore) li('Lorebook links removed from the transferred character: ' + p.lorebooksDrop.join(', '));
-      if (p.indicatorsAdd.length) li('Indicators copied: ' + p.indicatorsAdd.length + ' (with ' + p.variablesAdd.length + ' variable(s)' + (p.banksAdd.length ? ' and bank ' + p.banksAdd.map(b => '“' + b.name + '”').join(', ') : '') + ')');
+      if (p.indicatorsAdd.length) li('Indicators copied: ' + plural(p.indicatorsAdd.length, 'indicator') + ', with ' + plural(p.variablesAdd.length, 'variable') + (p.banksAdd.length ? ' and bank ' + p.banksAdd.map(b => '“' + b.name + '”').join(', ') : ''));
       else if (p.variablesAdd.length) li('Variables copied: ' + p.variablesAdd.length);
-      if (p.indicatorsReuse) li(p.indicatorsReuse + ' indicator(s) already in File ' + to + ' will be linked as they are.');
-      li('Not carried over: scenes, cutscenes and objectives that mention this character stay in File ' + from + '.');
-      const sum = el('div', { class: 'sum' }, el('div', { text: 'This will add to the bottom of File ' + to + ':' }), ul);
-      p.warnings.forEach(w => sum.append(el('div', { class: 'warn', text: '⚠ ' + w })));
-      body.append(sum);
-
-      body.append(el('label', { class: 'opt' },
-        el('input', { type: 'checkbox', ...(copyLore ? { checked: 'checked' } : {}), onchange: e => { copyLore = e.target.checked; drawSummary(); } }),
-        el('span', { text: 'Also copy the lorebooks this character uses (recommended; otherwise those links are removed)' })));
-
-      if (p.conflict) {
-        body.append(el('div', { class: 'sum' },
-          el('div', { class: 'warn', text: '⚠ File ' + to + ' already has a character with this exact ID (' + p.charName + ').' }),
-          el('label', { class: 'opt' }, el('input', { type: 'radio', name: 'mode', value: 'copy', ...(mode === 'copy' ? { checked: 'checked' } : {}), onchange: () => { mode = 'copy'; } }),
-            el('span', { text: 'Add as a separate character (gets a new ID)' })),
-          el('label', { class: 'opt' }, el('input', { type: 'radio', name: 'mode', value: 'replace', ...(mode === 'replace' ? { checked: 'checked' } : {}), onchange: () => { mode = 'replace'; } }),
-            el('span', { text: 'Replace the existing one in place (scenes in File ' + to + ' keep working)' }))));
-      }
+      const linked = p.lorebooksReuse + p.indicatorsReuse + p.banksReuse;
+      if (linked) li(plural(linked, 'item') + ' File ' + to + ' already has will just be linked.');
+      const skipped = p.lorebooksSkipped + p.indicatorsSkipped + p.banksSkipped;
+      if (skipped) li(plural(skipped, 'unticked item') + ' will be left out and unlinked from the transferred character.');
+      li('Scenes, cutscenes and objectives that mention this character stay in File ' + from + '.');
+      summary.replaceChildren(el('div', { text: 'This will add to the bottom of File ' + to + ':' }), ul, ...p.warnings.map(w => el('div', { class: 'warn', text: '⚠ ' + w })));
     };
+
+    const section = (title, key, items, describe) => {
+      if (!items.length) return null;
+      const boxes = items.map(it => {
+        const cb = el('input', { type: 'checkbox', checked: 'checked' });
+        cb.addEventListener('change', () => { if (cb.checked) picked[key].add(it.id); else picked[key].delete(it.id); drawSummary(); });
+        return { cb, it, row: el('label', { class: 'opt pick' }, cb, describe(it)) };
+      });
+      const setAll = v => { boxes.forEach(({ cb, it }) => { cb.checked = v; if (v) picked[key].add(it.id); else picked[key].delete(it.id); }); drawSummary(); };
+      return el('div', { class: 'pickbox' },
+        el('div', { class: 'sechead' }, el('b', { text: title }), el('span', { class: 'grow' }),
+          el('button', { class: 'small', text: 'All', onclick: () => setAll(true) }), el('button', { class: 'small', text: 'None', onclick: () => setAll(false) })),
+        ...boxes.map(b => b.row));
+    };
+
+    const body = el('div', { class: 'dlg-body' });
+    const secs = [
+      section('Lorebooks', 'lorebooks', opts.lorebooks, it => el('span', { class: 'plabel' }, el('span', { text: it.name + ' · ' + plural(it.entries, 'entry', 'entries') + ' ' }), it.isGlobal ? el('span', { class: 'badge', text: 'global' }) : null, ' ', status(it))),
+      section('Indicators (each one comes with its variable)', 'indicators', opts.indicators, it => el('span', { class: 'plabel' }, el('span', { text: it.name + (it.type ? ' · ' + it.type : '') + (it.bank ? ' · bank: ' + it.bank : '') + ' ' }), status(it))),
+      section('Variable banks tagged on the character (each comes with all its variables)', 'banks', opts.banks, it => el('span', { class: 'plabel' }, el('span', { text: it.name + ' · ' + plural(it.variables, 'variable') + ' ' }), status(it)))
+    ].filter(Boolean);
+    if (secs.length) body.append(...secs); else body.append(el('div', { class: 'muted', text: 'This character has no lorebooks, indicators or variable banks to bring along.' }));
+    body.append(summary);
+    if (exists) {
+      body.append(el('div', { class: 'sum' },
+        el('div', { class: 'warn', text: '⚠ File ' + to + ' already has a character with this exact ID.' }),
+        el('label', { class: 'opt' }, el('input', { type: 'radio', name: 'mode', value: 'copy', checked: 'checked', onchange: () => { mode = 'copy'; } }), el('span', { text: 'Add as a separate character (gets a new ID)' })),
+        el('label', { class: 'opt' }, el('input', { type: 'radio', name: 'mode', value: 'replace', onchange: () => { mode = 'replace'; } }), el('span', { text: 'Replace the existing one in place (scenes in File ' + to + ' keep working)' }))));
+    }
     drawSummary();
 
     const go = () => {
-      const res = Core.transfer(src.data, charId, dst.data, { copyLorebooks: copyLore, mode });
+      const res = Core.transfer(src.data, charId, dst.data, { pick: pickArg(), mode });
       dlg.close();
       dst.dirty = true; dst.undo = null; dst.flashId = res.newId; dst.filter = '';
       render(to);
@@ -556,7 +868,7 @@ if (typeof module !== 'undefined') module.exports = Core;
 
     dlg.replaceChildren(el('div', { class: 'dlg' },
       el('div', { class: 'dlg-head' }, el('h2', { text: 'Send “' + Core.characters(src.data).find(c => c.id === charId).name + '” to File ' + to }),
-        el('div', { text: 'File ' + from + ' is not changed.' })),
+        el('div', { text: 'Tick what should come along. File ' + from + ' is not changed.' })),
       body,
       el('div', { class: 'dlg-foot' }, el('span', { class: 'grow' }),
         el('button', { text: 'Cancel', onclick: () => dlg.close() }),

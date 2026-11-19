@@ -13,7 +13,32 @@
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text);
          font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  header { padding: 18px 24px 8px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px 24px; }
+  header { padding: 18px 24px 8px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; }
+  header .titles { flex: 1; min-width: 280px; }
+  header .titles p { margin-top: 4px; }
+  .help { margin: 4px 24px 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; }
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  @media (max-width: 800px) { .steps { grid-template-columns: 1fr; } }
+  .step { display: flex; gap: 10px; align-items: flex-start; font-size: 13.5px; color: var(--muted); }
+  .step b { color: var(--text); }
+  .step i { color: var(--text); font-style: normal; background: var(--panel2); border-radius: 4px; padding: 0 5px; }
+  .step .num { flex: none; width: 24px; height: 24px; border-radius: 50%; background: var(--accent2); color: #fff; font-weight: 700; display: grid; place-items: center; font-size: 13px; }
+  .help details { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 10px; font-size: 13.5px; color: var(--muted); }
+  .help summary { cursor: pointer; color: var(--text); font-weight: 600; }
+  .help ul { margin: 8px 0 0; padding-left: 20px; }
+  .help li { margin: 4px 0; }
+  .help li b { color: var(--text); }
+  .help li.important { color: var(--warn); list-style: none; margin-left: -20px; background: rgba(240,180,41,.08); border: 1px solid rgba(240,180,41,.35); border-radius: 6px; padding: 7px 10px; }
+  .help li.important b { color: var(--warn); }
+  footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 0 24px 28px; }
+  .infoline { padding: 8px 14px; display: flex; flex-wrap: wrap; gap: 6px; border-bottom: 1px solid var(--line); }
+  .chip { font-size: 12px; color: var(--muted); background: var(--panel2); border: 1px solid var(--line); border-radius: 999px; padding: 1px 9px; }
+  .chip.good { color: var(--ok); border-color: rgba(76,195,138,.4); }
+  .panel .warnbox { margin: 10px 14px 0; }
+  .empty { border: 2px dashed var(--line); border-radius: 10px; margin: 14px; line-height: 1.7; }
+  .empty b { color: var(--text); display: block; font-size: 15px; }
+  button.dl-ready { background: #2e9e5b; border-color: #2e9e5b; color: #fff; font-weight: 600; }
+  button.dl-ready:hover:not(:disabled) { background: #26864d; border-color: #26864d; }
   h1 { font-size: 20px; margin: 0; font-weight: 600; }
   header p { margin: 0; color: var(--muted); font-size: 13px; }
   button { font: inherit; color: var(--text); background: var(--panel2); border: 1px solid var(--line);
@@ -60,9 +85,11 @@
            padding: 0; width: min(760px, 94vw); max-height: 92vh; }
   dialog::backdrop { background: rgba(0,0,0,.6); }
   .dlg { display: flex; flex-direction: column; max-height: 92vh; }
-  .dlg-head { padding: 14px 18px; border-bottom: 1px solid var(--line); }
+  .dlg-head { padding: 14px 18px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  button.savebtn { background: #2e9e5b; border-color: #2e9e5b; font-weight: 600; padding: 8px 16px; }
+  button.savebtn:hover:not(:disabled) { background: #26864d; }
   .dlg-head h2 { margin: 0; font-size: 17px; }
-  .dlg-head div { color: var(--muted); font-size: 12px; }
+  .dlg-head div > div { color: var(--muted); font-size: 12px; }
   .dlg-body { padding: 14px 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
   .dlg-foot { padding: 12px 18px; border-top: 1px solid var(--line); display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
   .dlg-foot .grow { flex: 1; color: var(--muted); font-size: 12px; }
@@ -111,6 +138,17 @@
   .plabel { flex: 1; }
   label.chk { align-items: center; }
   label.chk input { margin-top: 0; }
+  .memrow { display: grid; grid-template-columns: auto 64px 1fr; gap: 8px; align-items: start; padding: 8px 6px; border-top: 1px solid var(--line); border-radius: 6px; }
+  .memrow:first-of-type { border-top: none; }
+  .memrow.tagged { background: rgba(255,107,107,.12); }
+  .memrow input[type=checkbox] { margin-top: 10px; width: 16px; height: 16px; }
+  .memrow textarea { min-height: 44px; resize: vertical; }
+  select.imp { padding: 6px; }
+  .memtools { position: sticky; top: -14px; z-index: 2; background: var(--panel); padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .memtools .grow { flex: 1; }
+  .row > span:not(.grow):not(.muted) { white-space: nowrap; }
+  .row > select { flex: 1; width: auto; }
+  .grow { flex: 1; }
   #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--ok); color: #06241a;
            padding: 10px 18px; border-radius: 8px; font-weight: 500; max-width: 90vw; opacity: 0; pointer-events: none;
            transition: opacity .25s; z-index: 50; }
@@ -120,17 +158,36 @@
 </head>
 <body>
 <header>
-  <h1>Novel Character Editor &amp; Transfer</h1>
-  <p>Load up to two novel JSON files. Click a character to edit its description, or send a character across to the other file.</p>
-  <span style="flex:1"></span>
+  <div class="titles">
+    <h1>miku.gg Character Toolkit</h1>
+    <p>Edit characters, move them between novels, and manage narration memories. Works offline in your browser: your files are never uploaded.</p>
+  </div>
   <button id="loadBoth" class="small">Load two files at once…</button>
   <input id="bothInput" type="file" accept=".json,application/json" multiple hidden>
 </header>
+
+<section class="help" id="help">
+  <div class="steps">
+    <div class="step"><span class="num">1</span><div><b>Load</b><br>Add one or two files below, or drop them onto the panels.</div></div>
+    <div class="step"><span class="num">2</span><div><b>Work</b><br>Click <i>Edit</i> on a character to change its description, lorebooks, indicators and memories. Use <i>Send</i> to copy it to the other file.</div></div>
+    <div class="step"><span class="num">3</span><div><b>Download</b><br>Press <i>Download</i> on each file you changed, then load it back into miku.gg. Your originals are never touched.</div></div>
+  </div>
+  <details id="fileHelp" open>
+    <summary>Which files work?</summary>
+    <ul>
+      <li><b>A novel file</b> (exported from the novel builder): you can edit, send and delete characters, and edit their lorebooks and indicators.</li>
+      <li><b>A narration history</b> (a novel that has been played): everything above, plus each character’s memories. Memories can be viewed, edited, deleted and sent along with a character.</li>
+      <li class="important">For narrations, always use the <b>“Download narration history”</b> and <b>“Load narration history”</b> buttons in the narration window. Do <b>not</b> use the “Saved narrations” / “My narrations” tab: files from there are laid out differently and miku.gg will not open them again after editing.</li>
+    </ul>
+  </details>
+</section>
 
 <main>
   <section class="panel" id="panelA" data-slot="A"></section>
   <section class="panel" id="panelB" data-slot="B"></section>
 </main>
+
+<footer>Tip: keep your original files as a backup. This tool never changes the files you load; it only offers an edited copy to download.</footer>
 
 <dialog id="editDlg"></dialog>
 <dialog id="xferDlg"></dialog>
@@ -149,11 +206,17 @@ const Core = (() => {
     });
   };
 
-  // The novel content lives in data.novel for history exports; fall back to the root for plain exports.
+  // Files come in two layouts: everything at the top (history exports) or wrapped as { ..., state: { novel, narration, ... } }.
+  const rootOf = d => (d && d.state && d.state.novel) ? d.state : d;
   function getNovel(data) {
-    if (data && data.novel && Array.isArray(data.novel.characters)) return data.novel;
-    if (data && Array.isArray(data.characters)) return data;
+    const r = rootOf(data);
+    if (r && r.novel && Array.isArray(r.novel.characters)) return r.novel;
+    if (r && Array.isArray(r.characters)) return r;
     return null;
+  }
+  function getNarration(data) {
+    const r = rootOf(data);
+    return (r && r.narration && r.narration.responses && typeof r.narration.responses === 'object') ? r.narration : null;
   }
 
   function parse(text) {
@@ -245,7 +308,8 @@ const Core = (() => {
       charName: ch.name, existingIndex, conflict: existingIndex >= 0,
       lorebooksAdd: [], lorebooksReuse: 0, lorebooksSkipped: 0,
       indicatorsAdd: [], indicatorsReuse: 0, indicatorsSkipped: 0,
-      variablesAdd: [], banksAdd: [], bankLinks: [], banksReuse: 0, banksSkipped: 0, warnings: []
+      variablesAdd: [], banksAdd: [], bankLinks: [], banksReuse: 0, banksSkipped: 0, warnings: [],
+      memoriesAdd: [], memoriesDuplicate: 0, memoryTarget: null
     };
 
     // ---- lorebooks
@@ -299,6 +363,25 @@ const Core = (() => {
       for (const vid of sBank.get(bid).variables || []) if (needVar(vid)) link(bid, vid);
     }
     p.banksAdd = [...bankAddMap.values()];
+
+    // ---- memories (opts.memories = keys from memoryOptions; opts.memoryPlacement = 'latest' (default) | 'early')
+    if (opts.memories && opts.memories.length) {
+      const dNar = getNarration(dst), chosen = new Set(opts.memories);
+      const path = dNar ? currentPath(dNar) : [];
+      if (!dNar) p.warnings.push('The destination file has no narration to hold memories, so they were not copied.');
+      else if (path.length < 2) p.warnings.push('The destination narration is only one turn long. miku.gg never stores memories on the very first turn, so memories were not copied. Play a few more turns and try again.');
+      else {
+        // Never the first (root) turn: miku.gg only writes memories on later turns.
+        const targetId = opts.memoryPlacement === 'early' ? path[Math.min(path.length - 1, 4)] : path[path.length - 1];
+        const have = new Set((memSentences(dNar.responses[targetId]) || []).map(x => String(x.sentence || '')));
+        p.memoryTarget = { responseId: targetId, turn: path.indexOf(targetId), placement: opts.memoryPlacement === 'early' ? 'early' : 'latest' };
+        for (const it of memoryOptions(src, charId).items) {
+          if (!chosen.has(it.key)) continue;
+          if (have.has(it.sentence)) { p.memoriesDuplicate++; continue; }
+          have.add(it.sentence); p.memoriesAdd.push(clone(it.raw));
+        }
+      }
+    }
     return p;
   }
 
@@ -330,6 +413,12 @@ const Core = (() => {
     if (ch.lorebookIds) ch.lorebookIds = ch.lorebookIds.filter(id => L.has(id) && wants(pick, 'lorebooks', id));
     if (ch.indicatorIds) ch.indicatorIds = ch.indicatorIds.filter(id => I.has(id) && wants(pick, 'indicators', id));
     if (ch.variableBankIds) ch.variableBankIds = ch.variableBankIds.filter(id => B.has(id) && wants(pick, 'banks', id));
+
+    if (p.memoriesAdd.length && p.memoryTarget) {
+      const r = getNarration(dst).responses[p.memoryTarget.responseId];
+      if (!r.summary || !Array.isArray(r.summary.sentences)) r.summary = Object.assign({}, r.summary, { sentences: [] });
+      r.summary.sentences.push(...p.memoriesAdd);
+    }
 
     if (mode === 'copy') {
       ch.id = uuid();
@@ -371,7 +460,8 @@ const Core = (() => {
   function charIndicators(data, charId) {
     const n = getNovel(data), ch = n.characters.find(c => c.id === charId);
     const ind = byId(n.indicators), vars = byId(n.variables), banks = byId(n.variableBanks);
-    const objs = [...(n.objectives || []), ...((data !== n && data.objectives) || [])];
+    const rt = rootOf(data);
+    const objs = [...(n.objectives || []), ...((rt !== n && rt.objectives) || [])];
     const objText = new Map(); for (const o of objs) objText.set(o.id, JSON.stringify(o));
     const objectivesUsing = vid => { let k = 0; for (const t of objText.values()) if (t.includes(vid)) k++; return k; };
     const items = [];
@@ -424,13 +514,15 @@ const Core = (() => {
     for (const cs of n.cutscenes || []) for (const pt of cs.parts || []) if ((pt.characters || []).some(c => c.id === charId)) r.cutsceneParts++;
     for (const st of n.starts || []) if ((st.characters || []).some(c => c.characterId === charId)) r.starts++;
     const seen = new Set(), lists = [n.objectives];
-    if (data !== n) lists.push(data.objectives);
+    const rt = rootOf(data);
+    if (rt !== n) lists.push(rt.objectives);
     for (const list of lists) for (const o of list || []) {
       const ids = o && o.stateCondition && o.stateCondition.config && o.stateCondition.config.characterIds;
       if (Array.isArray(ids) && ids.includes(charId)) seen.add(o.id);
     }
     r.objectives = seen.size;
-    const resp = data.narration && data.narration.responses;
+    const nar = getNarration(data);
+    const resp = nar && nar.responses;
     if (resp) for (const x of Object.values(resp)) {
       if (x.selectedCharacterId === charId || (x.characters || []).some(c => c.characterId === charId)) r.narration++;
     }
@@ -457,12 +549,130 @@ const Core = (() => {
     return { name, refs, stripped: stripRefs };
   }
 
+  // ---------------- narration memories ----------------
+  // Memories are stored in the narration: some responses carry summary.sentences = [{ sentence, importance }].
+  // The file has no per-character link, so a memory block counts as belonging to the characters who appear
+  // on the response that carries it. A block on a response with two characters is shared by both.
+
+  const escapeRe = s => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const memSentences = r => (r && r.summary && Array.isArray(r.summary.sentences)) ? r.summary.sentences : null;
+  const responseCharacterIds = r => new Set([...(r.characters || []).map(c => c.characterId), r.selectedCharacterId].filter(Boolean));
+
+  /** Responses from the start of the story down to rid. */
+  function pathTo(nar, rid) {
+    const R = nar.responses, I = nar.interactions || {}, path = [], seen = new Set();
+    let r = R[rid];
+    while (r && !seen.has(r.id)) {
+      seen.add(r.id); path.push(r.id);
+      if (!r.parentInteractionId) break;
+      const it = I[r.parentInteractionId];
+      r = it ? R[it.parentResponseId] : null;
+    }
+    return path.reverse();
+  }
+  /** The storyline the player is on now (start -> latest response). */
+  function currentPath(nar) {
+    const R = nar.responses;
+    let rid = nar.currentResponseId;
+    if (!rid || !R[rid]) {
+      let best = null, len = -1;
+      for (const id of Object.keys(R)) if (R[id].selected) { const l = pathTo(nar, id).length; if (l > len) { len = l; best = id; } }
+      rid = best;
+    }
+    return rid ? pathTo(nar, rid) : [];
+  }
+
+  /** Memory blocks that belong to a character, oldest first, each saying who else shares it. */
+  function charMemories(data, charId, opts = {}) {
+    const nar = getNarration(data);
+    if (!nar) return { hasNarration: false, blocks: [], total: 0 };
+    const novel = getNovel(data);
+    const names = new Map(novel.characters.map(c => [c.id, c.name]));
+    const me = names.get(charId);
+    const nameRe = me ? new RegExp('(^|[^\\w])' + escapeRe(me) + '(?![\\w])', 'i') : null;
+    const blocks = [];
+    for (const [rid, r] of Object.entries(nar.responses)) {
+      const s = memSentences(r);
+      if (!s || !s.length) continue;
+      const ids = responseCharacterIds(r);
+      if (!ids.has(charId)) {
+        // Not on this turn. With byName, still pick up sentences that name the character
+        // (this is how memories copied in from another file show up, since miku.gg has no owner field).
+        if (!opts.byName || !nameRe) continue;
+        const idxs = []; s.forEach((x, i) => { if (nameRe.test(String(x.sentence || ''))) idxs.push(i); });
+        if (!idxs.length) continue;
+        blocks.push({
+          responseId: rid, turn: pathTo(nar, rid).length - 1, partial: true, idxs, otherCount: s.length - idxs.length,
+          sharedWith: [...ids].map(i => names.get(i) || '(unknown character)'),
+          summary: { sentences: idxs.map(i => s[i]) }
+        });
+        continue;
+      }
+      blocks.push({
+        responseId: rid, turn: pathTo(nar, rid).length - 1,
+        sharedWith: [...ids].filter(i => i !== charId).map(i => names.get(i) || '(unknown character)'),
+        summary: r.summary
+      });
+    }
+    blocks.sort((a, b) => a.turn - b.turn);
+    return { hasNarration: true, blocks, total: blocks.reduce((a, b) => a + b.summary.sentences.length, 0) };
+  }
+
+  /** Write edited memory blocks back. A block with no sentences left loses its summary. Returns blocks changed. */
+  function commitMemories(data, copies) {
+    const nar = getNarration(data); let changed = 0;
+    if (!nar) return 0;
+    for (const c of copies) {
+      const r = nar.responses[c.responseId]; if (!r) continue;
+      if (c.partial) {
+        // Only some sentences of this block were shown (the ones naming the character). Edit/delete just those.
+        const orig = (r.summary && r.summary.sentences) || [];
+        const shown = new Set(c.idxs);
+        const byIdx = new Map((c.keptIdxs || c.idxs).map((ix, n) => [ix, c.summary.sentences[n]]));
+        const next = [];
+        orig.forEach((sn, i) => { if (!shown.has(i)) next.push(sn); else if (byIdx.get(i)) next.push(byIdx.get(i)); });
+        if (JSON.stringify(next) === JSON.stringify(orig)) continue;
+        if (!next.length) delete r.summary; else r.summary = Object.assign({}, r.summary, { sentences: next });
+        changed++; continue;
+      }
+      if (!c.summary.sentences.length) { if (r.summary) { delete r.summary; changed++; } continue; }
+      if (JSON.stringify(r.summary) !== JSON.stringify(c.summary)) { r.summary = c.summary; changed++; }
+    }
+    return changed;
+  }
+
+  /** A flat list of a character's memories for the transfer pick-list. */
+  function memoryOptions(src, charId) {
+    const m = charMemories(src, charId);
+    const others = getNovel(src).characters.filter(c => c.id !== charId).map(c => c.name).filter(Boolean);
+    const items = [];
+    for (const b of m.blocks) b.summary.sentences.forEach((s, i) => {
+      const text = String(s.sentence || '');
+      items.push({
+        key: b.responseId + '#' + i, sentence: text, importance: s.importance, turn: b.turn, sharedWith: b.sharedWith, raw: s,
+        mentions: others.filter(nm => new RegExp('(^|[^\\w])' + escapeRe(nm) + '(?![\\w])', 'i').test(text))
+      });
+    });
+    return { hasNarration: m.hasNarration, items };
+  }
+
+  /** What kind of file this is, for the panel summary. */
+  function fileInfo(data) {
+    const nar = getNarration(data);
+    const info = { layout: (data && data.state && data.state.novel) ? 'saved' : 'history', hasNarration: !!nar, turns: 0, memories: 0, characters: getNovel(data).characters.length };
+    if (nar) {
+      info.turns = currentPath(nar).length;
+      for (const r of Object.values(nar.responses || {})) { const m = memSentences(r); if (m) info.memories += m.length; }
+    }
+    return info;
+  }
+
   function serialize(text, data) {
     const m = text.match(/^\s*[\{\[]\r?\n([ \t]+)"/);
     return JSON.stringify(data, null, m ? m[1] : 0);
   }
 
-  return { clone, uuid, getNovel, parse, characters, getDescription, outfitsOf, applyEdits, plan, transfer, transferOptions, charLorebooks, charIndicators, commitCopies, referencesOf, deleteCharacter, serialize, sameText };
+  return { clone, uuid, getNovel, parse, characters, getDescription, outfitsOf, applyEdits, plan, transfer, transferOptions, charLorebooks, charIndicators, commitCopies, getNarration, charMemories, commitMemories, memoryOptions, referencesOf, deleteCharacter, serialize, sameText, fileInfo };
 })();
 if (typeof module !== 'undefined') module.exports = Core;
 </script>
@@ -517,6 +727,14 @@ if (typeof module !== 'undefined') module.exports = Core;
     inp.click();
   }
 
+  // Keep the help box open until a file is loaded, then fold it away (still one click to reopen).
+  let helpTouched = false;
+  function syncHelp() {
+    const d = $('#fileHelp'); if (!d || helpTouched) return;
+    d.open = !(slots.A.data || slots.B.data);
+  }
+  document.addEventListener('DOMContentLoaded', () => { const d = $('#fileHelp'); if (d) d.addEventListener('toggle', () => { if (document.activeElement && document.activeElement.tagName === 'SUMMARY') helpTouched = true; }); });
+
   // ---------- panel rendering ----------
   function render(k) {
     const s = slots[k], panel = $('#panel' + k);
@@ -532,9 +750,20 @@ if (typeof module !== 'undefined') module.exports = Core;
     if (s.error) panel.append(el('div', { class: 'error', text: s.error }));
 
     if (!s.data) {
-      panel.append(el('div', { class: 'empty', text: 'Drop a .json file here, or use “Choose file…”.' }));
+      panel.append(el('div', { class: 'empty' }, el('b', { text: 'Drop a .json file here' }), el('span', { text: 'or use “Choose file…” above. A novel export or a narration history both work.' })));
+      syncHelp();
       return;
     }
+    syncHelp();
+
+    const info = Core.fileInfo(s.data);
+    const chips = el('div', { class: 'infoline' },
+      el('span', { class: 'chip', text: plural(info.characters, 'character', 'characters') }),
+      info.hasNarration
+        ? el('span', { class: 'chip good', text: 'Narration history · ' + plural(info.turns, 'turn', 'turns') + ' · ' + plural(info.memories, 'memory', 'memories') })
+        : el('span', { class: 'chip', text: 'Novel only · no play history, so no memories' }));
+    panel.append(chips);
+    if (info.layout === 'saved') panel.append(el('div', { class: 'warnbox', text: '⚠ This file looks like it came from the “Saved narrations” / “My narrations” tab. miku.gg may not open it again after editing. For best results, get it with “Download narration history” in the narration window instead.' }));
 
     const chars = Core.characters(s.data);
     const filter = el('input', { type: 'text', placeholder: 'Filter characters…', value: s.filter });
@@ -549,10 +778,11 @@ if (typeof module !== 'undefined') module.exports = Core;
         if (q && !(c.name || '').toLowerCase().includes(q)) return;
         shown++;
         const li = el('li', { class: s.flashId === c.id ? 'flash' : '' },
-          el('button', { class: 'cname', title: 'Edit description', onclick: () => openEditor(k, c.id) },
+          el('button', { class: 'cname', title: 'Click to edit', onclick: () => openEditor(k, c.id) },
             el('span', { class: 'nm', text: c.name || '(unnamed)' }),
             el('span', { class: 'sd', text: c.short_description || '' })),
           c.hidden ? el('span', { class: 'badge', text: 'hidden' }) : null,
+          el('button', { class: 'small', title: 'Edit description, lorebooks, indicators and memories', text: 'Edit', onclick: () => openEditor(k, c.id) }),
           el('button', {
             class: 'small', title: 'Send this character to File ' + other(k), disabled: slots[other(k)].data ? null : 'disabled',
             text: k === 'A' ? 'Send to B →' : '← Send to A', onclick: () => openTransfer(k, c.id)
@@ -577,11 +807,11 @@ if (typeof module !== 'undefined') module.exports = Core;
           }
         }) : null,
         el('button', {
-          class: 'small', text: 'Reset', title: 'Discard all changes and reload the file as uploaded',
+          class: 'small', text: 'Undo all changes', title: 'Discard every change and go back to the file as you loaded it',
           disabled: s.dirty ? null : 'disabled',
-          onclick: () => { s.data = Core.parse(s.text); s.dirty = false; s.undo = null; render(k); toast('File ' + k + ' reset to the uploaded version.'); }
+          onclick: () => { s.data = Core.parse(s.text); s.dirty = false; s.undo = null; render(k); toast('File ' + k + ' is back to the version you loaded.'); }
         }),
-        el('button', { class: 'primary small', text: 'Download ⬇', onclick: () => download(k) })
+        el('button', { class: s.dirty ? 'small dl-ready' : 'small', text: s.dirty ? 'Download edited file ⬇' : 'Download ⬇', title: s.dirty ? 'You have unsaved changes. Download the edited copy.' : 'Nothing changed yet, this downloads an identical copy', onclick: () => download(k) })
       ),
       count, list
     );
@@ -597,7 +827,8 @@ if (typeof module !== 'undefined') module.exports = Core;
     const a = el('a', { href: URL.createObjectURL(blob), download: stem + (s.dirty ? '_edited' : '') + '.json' });
     document.body.append(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-    toast('Downloaded ' + a.download);
+    const inf = Core.fileInfo(s.data);
+    toast('Downloaded ' + a.download + (inf.hasNarration ? '. Load it back with “Load narration history” in miku.gg.' : '.'));
   }
 
   // ---------- small form helpers (edit a working copy in place, only when the user types) ----------
@@ -769,33 +1000,103 @@ if (typeof module !== 'undefined') module.exports = Core;
       }
     }
 
+    // ----- Memories tab (narration memories that belong to this character; working copies, tag-and-delete)
+    const mem = Core.charMemories(s.data, charId, { byName: true });
+    const memBlocks = mem.blocks.map(b => {
+      const copy = Core.clone(b.summary);
+      if (b.partial) copy.sentences.forEach((x, i) => { x.__i = b.idxs[i]; });   // UI-only marker, stripped before saving
+      return Object.assign({}, b, { copy });
+    });
+    const tagged = new Set();                       // sentence objects tagged for deletion
+    const memPane = el('div', { class: 'pane', hidden: 'hidden' });
+    const memBody = el('div', { class: 'pane' });
+    const memStatus = el('span', { class: 'muted grow' });
+    const delBtn = el('button', { class: 'small danger', text: 'Delete tagged (0)', disabled: 'disabled' });
+    let removed = 0;
+    const memTotal = () => memBlocks.reduce((a, b) => a + b.copy.sentences.length, 0);
+    const refreshMem = () => {
+      delBtn.textContent = 'Delete tagged (' + tagged.size + ')'; delBtn.disabled = !tagged.size;
+      memStatus.textContent = removed ? plural(removed, 'memory', 'memories') + ' removed. Press the green “Save changes” button (top right or bottom right) to apply.' : '';
+      if (tabBtns.mem) tabBtns.mem.textContent = 'Memories (' + memTotal() + ')';
+    };
+    const memRow = sn => {
+      const cb = el('input', { type: 'checkbox', title: 'Tag for deletion' }); cb.checked = tagged.has(sn);
+      const levels = [1, 2, 3, 4, 5]; if (!levels.includes(sn.importance) && sn.importance != null) levels.push(sn.importance);
+      const imp = el('select', { class: 'imp', title: 'Importance (1 to 5)' }, ...levels.map(v => el('option', { value: String(v), text: String(v) })));
+      imp.value = String(sn.importance);
+      imp.addEventListener('change', () => { sn.importance = Number(imp.value); });
+      const ta = el('textarea', { class: 'memtext', rows: String(Math.max(2, Math.ceil(String(sn.sentence || '').length / 85))), spellcheck: 'false' });
+      ta.value = sn.sentence || '';
+      ta.addEventListener('input', () => { sn.sentence = ta.value; });
+      const row = el('div', { class: 'memrow' + (cb.checked ? ' tagged' : '') }, cb, imp, ta);
+      cb.addEventListener('change', () => { if (cb.checked) tagged.add(sn); else tagged.delete(sn); row.classList.toggle('tagged', cb.checked); refreshMem(); });
+      return row;
+    };
+    const renderMem = () => {
+      memBody.replaceChildren();
+      const live = memBlocks.filter(b => b.copy.sentences.length);
+      if (!live.length) memBody.append(el('div', { class: 'muted', text: mem.blocks.length ? 'All of this character’s memories are removed. Press “Save changes” to apply, or Cancel to keep them.' : 'This character has no memories in this file.' }));
+      for (const b of live) {
+        memBody.append(el('div', { class: 'card big-card' },
+          el('div', { class: 'cardhead' }, el('b', { text: (b.partial ? 'Memories naming this character, on turn ' : 'Memories from turn ') + (b.turn + 1) }),
+            el('span', { class: 'badge', text: plural(b.copy.sentences.length, 'memory', 'memories') }),
+            !b.partial && b.sharedWith.length ? el('span', { class: 'badge warnb', text: 'shared' }) : null),
+          b.partial ? el('div', { class: 'muted', text: 'This character is not on that turn, but these memories name them. This is where memories copied in from another file end up.' + (b.otherCount ? ' ' + plural(b.otherCount, 'other memory', 'other memories') + ' on this turn do not use the name “' + c.name + '” (for example they say “she” or use another name), so they are not listed here.' : '') }) : null,
+        !b.partial && b.sharedWith.length ? el('div', { class: 'warnbox', text: '⚠ These memories are also assigned to ' + nameList(b.sharedWith) + ' (they were together in this scene). Editing or deleting them changes them for those characters too.' }) : null,
+          ...b.copy.sentences.map(memRow)));
+      }
+      refreshMem();
+    };
+    delBtn.addEventListener('click', () => {
+      for (const b of memBlocks) b.copy.sentences = b.copy.sentences.filter(x => !tagged.has(x));
+      removed += tagged.size; tagged.clear(); renderMem();
+    });
+    memPane.append(
+      el('div', { class: 'muted', text: 'Memories belong to the characters who appear on the turn they were generated on. Tag the ones you want gone, then press Delete tagged. Nothing changes in the file until you press “Save changes”.' }),
+      el('div', { class: 'row memtools' },
+        el('button', { class: 'small', text: 'Tag all', onclick: () => { memBlocks.forEach(b => b.copy.sentences.forEach(x => tagged.add(x))); renderMem(); } }),
+        el('button', { class: 'small', text: 'Clear tags', onclick: () => { tagged.clear(); renderMem(); } }),
+        memStatus, delBtn),
+      memBody);
+
     // ----- tabs
     const panes = { desc: descPane, lore: lorePane, ind: indPane };
+    if (mem.hasNarration) panes.mem = memPane;
     const tabBtns = {};
     const showTab = key => { for (const [kk, p] of Object.entries(panes)) { p.hidden = kk !== key; tabBtns[kk].classList.toggle('on', kk === key); } counter.style.visibility = key === 'desc' ? 'visible' : 'hidden'; };
     const tabs = el('div', { class: 'tabs' });
-    [['desc', 'Description'], ['lore', 'Lorebooks (' + loreCopies.length + ')'], ['ind', 'Indicators (' + (inds.items.length + inds.banks.reduce((a, b) => a + b.variables.length, 0)) + ')']].forEach(([key, label]) => {
+    const tabDefs = [['desc', 'Description'], ['lore', 'Lorebooks (' + loreCopies.length + ')'], ['ind', 'Indicators (' + (inds.items.length + inds.banks.reduce((a, b) => a + b.variables.length, 0)) + ')']];
+    if (mem.hasNarration) tabDefs.push(['mem', 'Memories (' + mem.total + ')']);
+    tabDefs.forEach(([key, label]) => {
       tabBtns[key] = el('button', { class: 'tab', text: label, onclick: () => showTab(key) }); tabs.append(tabBtns[key]);
     });
 
     const save = () => {
       const descChanged = Core.applyEdits(c, { description: desc.value, shortDescription: short.value, outfits: outAreas.map(t => t.value) });
       const n = Core.commitCopies(s.data, { lorebooks: loreCopies.map(x => x.copy), indicators: [...indClones.values()], variables: [...varClones.values()] });
+      const nm = mem.hasNarration ? Core.commitMemories(s.data, memBlocks.map(b => {
+        const kept = b.copy.sentences.map(x => x.__i);
+        const clean = { sentences: b.copy.sentences.map(x => { const y = Object.assign({}, x); delete y.__i; return y; }) };
+        return { responseId: b.responseId, summary: Object.assign({}, b.copy, clean), partial: !!b.partial, idxs: b.idxs, keptIdxs: kept };
+      })) : 0;
       dlg.close();
-      if (descChanged || n) {
+      if (descChanged || n || nm) {
         s.dirty = true; s.undo = null; render(k);
-        toast('Saved changes to ' + c.name + (n ? ' (' + plural(n, 'lorebook / indicator / variable item') + ' updated)' : '') + '. Remember to download the file.');
+        const bits = []; if (n) bits.push(plural(n, 'lorebook / indicator / variable item') + ' updated'); if (nm) bits.push(plural(nm, 'memory block') + ' updated');
+        toast('Saved changes to ' + c.name + (bits.length ? ' (' + bits.join(', ') + ')' : '') + '. Remember to download the file.');
       }
     };
 
     dlg.replaceChildren(el('div', { class: 'dlg' },
-      el('div', { class: 'dlg-head' }, el('h2', { text: c.name }), el('div', { text: 'File ' + k + ' · ' + s.name })),
+      el('div', { class: 'dlg-head' }, el('div', {}, el('h2', { text: c.name }), el('div', { text: 'File ' + k + ' · ' + s.name })),
+        el('div', { class: 'row' }, el('button', { text: 'Cancel', onclick: () => dlg.close() }), el('button', { class: 'primary savebtn', text: '✔ Save changes', onclick: save }))),
       tabs,
-      el('div', { class: 'dlg-body' }, descPane, lorePane, indPane),
+      el('div', { class: 'dlg-body' }, descPane, lorePane, indPane, memPane),
       el('div', { class: 'dlg-foot' }, counter,
         el('button', { text: 'Cancel', onclick: () => dlg.close() }),
-        el('button', { class: 'primary', text: 'Save', onclick: save }))
+        el('button', { class: 'primary savebtn', text: '✔ Save changes', onclick: save }))
     ));
+    renderMem();
     showTab('desc');
     dlg.showModal(); desc.focus();
   }
@@ -809,12 +1110,13 @@ if (typeof module !== 'undefined') module.exports = Core;
     const picked = { lorebooks: new Set(opts.lorebooks.map(x => x.id)), indicators: new Set(opts.indicators.map(x => x.id)), banks: new Set(opts.banks.map(x => x.id)) };
     const exists = Core.characters(dst.data).some(x => x.id === charId);
     let mode = 'copy';
+    picked.memories = new Set(); let memPlacement = 'latest';
     const pickArg = () => ({ lorebooks: [...picked.lorebooks], indicators: [...picked.indicators], banks: [...picked.banks] });
     const status = it => el('span', { class: 'badge ' + (it.inTarget ? 'okb' : ''), text: it.inTarget ? 'already in File ' + to + ' (will link to that one)' : 'will be copied' });
 
     const summary = el('div', { class: 'sum' });
     const drawSummary = () => {
-      const p = Core.plan(src.data, charId, dst.data, { pick: pickArg() });
+      const p = Core.plan(src.data, charId, dst.data, { pick: pickArg(), memories: [...picked.memories], memoryPlacement: memPlacement });
       const ul = el('ul'); const li = t => ul.append(el('li', { text: t }));
       li('The character itself: description, outfits, emotions, images and settings.');
       if (p.lorebooksAdd.length) li('Lorebooks copied: ' + p.lorebooksAdd.map(l => l.name || l.id).join(', '));
@@ -824,6 +1126,8 @@ if (typeof module !== 'undefined') module.exports = Core;
       if (linked) li(plural(linked, 'item') + ' File ' + to + ' already has will just be linked.');
       const skipped = p.lorebooksSkipped + p.indicatorsSkipped + p.banksSkipped;
       if (skipped) li(plural(skipped, 'unticked item') + ' will be left out and unlinked from the transferred character.');
+      if (p.memoriesAdd.length) li('Memories copied: ' + plural(p.memoriesAdd.length, 'memory', 'memories') + ', added to the ' + (p.memoryTarget.placement === 'latest' ? 'latest turn' : 'an early turn (turn ' + (p.memoryTarget.turn + 1) + ')') + ' of File ' + to + (p.memoriesDuplicate ? ' (' + p.memoriesDuplicate + ' already there, skipped)' : ''));
+      else if (p.memoriesDuplicate) li('All ' + p.memoriesDuplicate + ' selected memories are already in File ' + to + '.');
       li('Scenes, cutscenes and objectives that mention this character stay in File ' + from + '.');
       summary.replaceChildren(el('div', { text: 'This will add to the bottom of File ' + to + ':' }), ul, ...p.warnings.map(w => el('div', { class: 'warn', text: '⚠ ' + w })));
     };
@@ -849,6 +1153,45 @@ if (typeof module !== 'undefined') module.exports = Core;
       section('Variable banks tagged on the character (each comes with all its variables)', 'banks', opts.banks, it => el('span', { class: 'plabel' }, el('span', { text: it.name + ' · ' + plural(it.variables, 'variable') + ' ' }), status(it)))
     ].filter(Boolean);
     if (secs.length) body.append(...secs); else body.append(el('div', { class: 'muted', text: 'This character has no lorebooks, indicators or variable banks to bring along.' }));
+    // ----- memories (opt-in)
+    const memOpts = Core.memoryOptions(src.data, charId);
+    if (memOpts.hasNarration) {
+      const hasNar = !!Core.getNarration(dst.data);
+      const box = el('div', { class: 'pickbox' });
+      if (!memOpts.items.length) {
+        box.append(el('div', { class: 'muted', text: 'This character has no memories in File ' + from + '.' }));
+      } else {
+        const master = el('input', { type: 'checkbox' });
+        if (!hasNar) master.disabled = true;
+        const rows = memOpts.items.map(it => {
+          const cb = el('input', { type: 'checkbox', checked: 'checked' });
+          cb.addEventListener('change', () => { if (cb.checked) picked.memories.add(it.key); else picked.memories.delete(it.key); drawSummary(); });
+          return { cb, it, row: el('label', { class: 'opt pick' }, cb, el('span', { class: 'plabel' },
+            el('span', { text: it.sentence + ' ' }), el('span', { class: 'badge', text: 'importance ' + it.importance }), ' ',
+            it.sharedWith.length ? el('span', { class: 'badge warnb', text: 'shared with ' + nameList(it.sharedWith, 3) }) : null, ' ',
+            it.mentions.length ? el('span', { class: 'badge warnb', text: 'mentions ' + nameList(it.mentions, 3) }) : null)) };
+        });
+        const place = el('select', {}, el('option', { value: 'latest', text: 'the latest turn (recommended)' }), el('option', { value: 'early', text: 'an early turn (turn 5)' }));
+        place.addEventListener('change', () => { memPlacement = place.value; drawSummary(); });
+        const setAll = v => { rows.forEach(({ cb, it }) => { cb.checked = v; if (v) picked.memories.add(it.key); else picked.memories.delete(it.key); }); drawSummary(); };
+        const detail = el('div', { class: 'pane' },
+          el('div', { class: 'row' }, el('span', { text: 'Add them in File ' + to + ' at' }), place, el('span', { class: 'grow' }),
+            el('button', { class: 'small', text: 'All', onclick: () => setAll(true) }), el('button', { class: 'small', text: 'None', onclick: () => setAll(false) })),
+          el('div', { class: 'muted', text: 'Memories are saved on turns of the story, not on characters, so File ' + to + ' has no per-character slot for them. They are added as plain text, once each. Memories marked \u201cshared\u201d were assigned to several characters in File ' + from + '; they are copied for this character only and carry no link to the others. Untick any that mention characters File ' + to + ' does not have.' }),
+          ...rows.map(r => r.row));
+        detail.hidden = true;
+        master.addEventListener('change', () => {
+          detail.hidden = !master.checked;
+          picked.memories.clear();
+          if (master.checked) rows.forEach(({ cb, it }) => { if (cb.checked) picked.memories.add(it.key); });
+          drawSummary();
+        });
+        box.append(el('label', { class: 'opt' }, master, el('b', { text: 'Also transfer this character\u2019s memories (' + memOpts.items.length + ')' })));
+        if (!hasNar) box.append(el('div', { class: 'warnbox', text: '\u26a0 File ' + to + ' has no narration (play history), so there is nowhere to put memories.' }));
+        box.append(detail);
+      }
+      body.append(box);
+    }
     body.append(summary);
     if (exists) {
       body.append(el('div', { class: 'sum' },
@@ -859,11 +1202,11 @@ if (typeof module !== 'undefined') module.exports = Core;
     drawSummary();
 
     const go = () => {
-      const res = Core.transfer(src.data, charId, dst.data, { pick: pickArg(), mode });
+      const res = Core.transfer(src.data, charId, dst.data, { pick: pickArg(), mode, memories: [...picked.memories], memoryPlacement: memPlacement });
       dlg.close();
       dst.dirty = true; dst.undo = null; dst.flashId = res.newId; dst.filter = '';
       render(to);
-      toast('“' + res.plan.charName + '” ' + (res.mode === 'replace' ? 'replaced in' : 'added to the bottom of') + ' File ' + to + '. Download File ' + to + ' to keep it.');
+      toast('“' + res.plan.charName + '” ' + (res.mode === 'replace' ? 'replaced in' : 'added to the bottom of') + ' File ' + to + (res.plan.memoriesAdd.length ? ' with ' + plural(res.plan.memoriesAdd.length, 'memory', 'memories') : '') + '. Download File ' + to + ' to keep it.');
     };
 
     dlg.replaceChildren(el('div', { class: 'dlg' },

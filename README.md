@@ -35,7 +35,27 @@ Nothing is written to the file until you press the green **Save changes** button
 ### Send a character to the other file
 Press **Send to A/B**. The character is added to the bottom of the other file's character list with its outfits, emotions, images and settings. You choose exactly which of its lorebooks, indicators (each comes with its variable) and variable banks come along. Anything the other file already has is linked rather than duplicated. If the character already exists there, you can add it as a copy or replace the existing one in place.
 
-Scenes, cutscenes and objectives that mention the character stay in the original file.
+Scenes, cutscenes and objectives that mention the character stay in the original file. Do not delete a character first and then send the old version in: deleting removes the character from every scene, so the new copy would not be in any of them. Use **Replace in place** instead, which keeps all scene links.
+
+### Send memories only
+If the same character exists in both files (same ID, which is when the tool also offers **Replace in place**), a **Send memories to A/B** button appears on that character's row. It copies only the memories and changes nothing else about the character. This is the way to carry what a character remembers from an old play history into a new version of the novel.
+
+You pick which memories to send and whether they go on the latest turn or an early turn. If the other file already has memories for that character, you also choose:
+
+- **Add**: keep what it has and add these. Anything already there is skipped, so sending twice does not double them up.
+- **Overwrite**: remove the memories the character has on turns where it appears alone, then add these. Memories shared with other characters are always kept, because changing them would change those characters too.
+
+The other file needs a narration history of at least two turns.
+
+### Red exclamation marks
+A red **!** next to a character, or a red **"problems to check"** tag on a file, means something you did here may break it in miku.gg. Click it to see what and why. Examples:
+
+- You replaced a character and the new version lacks an outfit that scenes or cutscenes use.
+- You deleted a character that objectives or the play history still refer to.
+- A character is tagged with a lorebook, indicator or variable bank that is no longer in the file.
+- You changed the type of a variable that objectives depend on.
+
+The tool only flags problems that were **not** in the file when you loaded it, so a file that was already odd does not raise false alarms. Nothing is fixed automatically: **Undo all changes** takes the file back to how you loaded it, and the flags disappear when the cause does. Flagged files can still be downloaded, with a warning.
 
 ### Delete a character
 Press **Delete**. The tool shows what else points at the character (scenes, cutscenes, start screens) and removes those links too, so nothing is left pointing at a character that no longer exists. Lorebooks, indicators and variables stay. **Undo delete** appears straight afterwards, and **Undo all changes** takes the file back to how you loaded it.
